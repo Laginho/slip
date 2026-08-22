@@ -17,10 +17,23 @@ import { daysOverdue, formatDeadline, urgencyOf } from "../urgency";
  *
  * Renders an <li>: the parent is a <ul>.
  *
- * Gestures:
+ * Gestures (shortcuts -- every action also has a plain button):
  *   complete  swipe right, double-tap, double-click
- *   delete    swipe left, or the hover-revealed x on a fine pointer
+ *   delete    swipe left, or the × button
  *   edit      long-press, or a single click on a fine pointer
+ *
+ * Keyboard and assistive tech get three real buttons -- Concluir, Editar, Apagar --
+ * rendered unconditionally: gating on a fine-pointer media query strands anyone using
+ * a keyboard with a touch-oriented device, which is exactly the pairing tablets get.
+ * They sit at opacity 0 with pointer-events:none until the Card is genuinely hovered
+ * (only where `(hover: hover)` holds -- a touch tap's compatibility mouseenter must not
+ * arm them mid-gesture) or holds focus within (tracked by React's bubbling onFocus/
+ * onBlur, since inline styles cannot express :focus-within), so a resting Card keeps
+ * its whole surface for gestures and an
+ * invisible button can never take a tap; tabbing to one reveals and enables it, with
+ * its native focus outline. The <li> itself stays non-focusable: one focus target
+ * hiding Enter/Delete/F2 behind undiscoverable semantics communicates none of the three
+ * actions well.
  *
  * A swipe past the threshold flies the Card off-screen in its own direction and only
  * then reports up, so the Task leaving the store is what closes the gap behind it;
@@ -62,24 +75,40 @@ type Phase =
 type Props = {
   task: Task;
   now: Date;
-  onComplete: (task: Task) => void;
-  onDelete: (task: Task) => void;
-  onEdit: (task: Task, text: string) => void;
+  /** Returns whether the action persisted; false means storage refused the write. */
+  onComplete: (task: Task) => boolean;
+  onDelete: (task: Task) => boolean;
+  onEdit: (task: Task, text: string) => boolean;
 };
 
 export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
   const urgency = urgencyOf(task.deadline, now);
   const late = daysOverdue(task.deadline, now);
   const ink = urgency === "dark" ? INK_ON_DARK : INK_ON_LIGHT;
-  const hasFinePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+  // Mouse-hover reveal only exists where hover does. Touch browsers fire compatibility
+  // mouseenter/mouseover on a plain tap and leave the state stuck until the next tap
+  // elsewhere -- trusting them would re-arm the buttons mid-gesture and let the second
+  // half of a double-tap land on Apagar. This gates ONLY the hover half of the reveal:
+  // rendering, Tab focusability and focus-driven reveal stay unconditional, so a
+  // keyboard attached to a tablet still reaches every action.
+  const canHover = window.matchMedia("(hover: hover)").matches;
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.text);
   const [hovered, setHovered] = useState(false);
+  // focus-within: focus and blur bubble in React, so a child button tabbed to sets this.
+  const [focusedWithin, setFocusedWithin] = useState(false);
 
   const origin = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
   const longPress = useRef<number | undefined>(undefined);
   const pendingTap = useRef<number | undefined>(undefined);
+
+  /** The in-place edit input, and the control keyboard commits hand focus back to. */
+  const editInput = useRef<HTMLInputElement>(null);
+  const editarButton = useRef<HTMLButtonElement>(null);
+  /** Set when a commit leaves the input holding focus; consumed by the effect below. */
+  const wantsFocusBack = useRef(false);
 
   /** Which way an exit is flying, while it flies. Null again the moment it lands. */
   const exitWay = useRef<"left" | "right" | null>(null);
@@ -96,15 +125,39 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
     [],
   );
 
+  // Leaving edit mode unmounts the focused input, and browsers do not reliably deliver
+  // focusout for a removed node -- without this reset the three controls can stick
+  // revealed on that one Card with nothing actually focused inside it. When a commit
+  // came from the keyboard (input still focused), hand focus to the Card's own controls
+  // instead of dropping it on <body>; run after render so the button exists to focus.
+  useEffect(() => {
+    if (!editing && wantsFocusBack.current) {
+      wantsFocusBack.current = false;
+      editarButton.current?.focus();
+    }
+  }, [editing]);
+
   const beginEdit = () => {
     setDraft(task.text);
     setEditing(true);
   };
 
-  const commitEdit = () => {
+  /** Leave edit mode, clearing any focus-within the unmounting input leaves behind. */
+  const finishEditing = () => {
+    // A keyboard commit still holds focus in the input; remember that so the effect
+    // above can return it. A blur commit must not steal focus back -- focus already
+    // moved where the user sent it.
+    wantsFocusBack.current = document.activeElement === editInput.current;
     setEditing(false);
-    // A blank draft is a no-op in the store, so this leaves the text as it was.
-    if (draft.trim() !== task.text) onEdit(task, draft);
+    setFocusedWithin(false);
+  };
+
+  const commitEdit = () => {
+    // Persist FIRST: a refused write keeps the editor open with the draft intact for a
+    // retry, rather than discarding the typed text behind a generic banner. A blank
+    // draft is a store no-op and simply closes.
+    if (draft.trim() !== task.text && !onEdit(task, draft)) return;
+    finishEditing();
   };
 
   const finishExit = () => {
@@ -112,8 +165,10 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
     if (way === null) return; // already finished, or never started
     exitWay.current = null;
     window.clearTimeout(exitGuard.current);
-    if (way === "right") onComplete(task);
-    else onDelete(task);
+    const saved = way === "right" ? onComplete(task) : onDelete(task);
+    // A false return means persistence failed and the Task is still in the store: the
+    // Card springs back rather than staying stranded off-screen with its action lost.
+    if (!saved) setPhase({ kind: "spring" });
   };
 
   /** Fly off-screen now; the action fires when the flight lands, not at release. */
@@ -131,7 +186,11 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
 
   const onPointerDown = (event: ReactPointerEvent<HTMLLIElement>) => {
     if (editing || phase.kind === "exit") return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer that is already gone (or a synthetic one) must not break the gesture.
+    }
     origin.current = { x: event.clientX, y: event.clientY, dragged: false };
     setPhase({ kind: "drag", dx: 0 });
     longPress.current = window.setTimeout(() => {
@@ -200,6 +259,34 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
       ? `transform ${EXIT_MS}ms ease-out`
       : "none";
 
+  // The action buttons reveal on hover of the Card (only where hover is a real
+  // capability -- see canHover) or whenever anything inside it holds focus.
+  const revealActions = (hovered && canHover) || focusedWithin;
+
+  const actionStyle = {
+    flex: "none",
+    border: "none",
+    background: "none",
+    color: ink,
+    opacity: revealActions ? 0.7 : 0,
+    // Invisible must also mean untouchable: opacity hides painting only, and a live tap
+    // target behind it would swallow the swipe strip at the Card's trailing edge and
+    // delete on a plain tap. pointer-events:none lets touches fall through to the <li>;
+    // Tab focus is unaffected, and focusing a button flips this back to "auto", so its
+    // own Enter/Space activation and any pointer use after reveal keep working.
+    pointerEvents: revealActions ? "auto" : "none",
+    padding: "0 2px",
+    fontSize: 16,
+    lineHeight: 1,
+    // The browser's default focus outline stays; hiding it would undo the reveal.
+    cursor: revealActions ? "pointer" : "default",
+  } as const;
+
+  /** Gestures live on the <li>; a button press must not start one. */
+  const swallowPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+  };
+
   return (
     <li
       onPointerDown={onPointerDown}
@@ -209,6 +296,8 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
       onTransitionEnd={onTransitionEnd}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocusedWithin(true)}
+      onBlur={() => setFocusedWithin(false)}
       style={{
         listStyle: "none",
         background: CARD[task.kind][urgency],
@@ -229,15 +318,20 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
       <span style={{ flex: 1, minWidth: 0, fontSize: 16, lineHeight: 1.3 }}>
         {editing ? (
           <input
+            ref={editInput}
             autoFocus
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitEdit}
             onKeyDown={(event) => {
-              if (event.key === "Enter") commitEdit();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitEdit();
+              }
               if (event.key === "Escape") {
+                // Cancel: no write attempted, the draft reverts.
                 setDraft(task.text);
-                setEditing(false);
+                finishEditing();
               }
             }}
             aria-label="Task"
@@ -280,31 +374,49 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
         </span>
       )}
 
-      {/* Hover-revealed, so the resting list stays clean. Absent on touch, which has
-          no hover -- there, deleting is the left swipe. */}
-      {!editing && hasFinePointer && (
-        <button
-          type="button"
-          aria-label="Apagar"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete(task);
-          }}
-          style={{
-            flex: "none",
-            border: "none",
-            background: "none",
-            color: ink,
-            opacity: hovered ? 0.7 : 0,
-            padding: "0 2px",
-            fontSize: 16,
-            lineHeight: 1,
-            cursor: hovered ? "pointer" : "default",
-          }}
-        >
-          ×
-        </button>
+      {/* Native controls for all three actions, always rendered -- keyboard and
+          touch-keyboard users cannot be gated behind a fine-pointer media query.
+          Hover or focus-within reveals them; gestures remain the shortcuts. */}
+      {!editing && (
+        <>
+          <button
+            type="button"
+            aria-label="Concluir"
+            onPointerDown={swallowPointerDown}
+            onClick={(event) => {
+              event.stopPropagation();
+              onComplete(task);
+            }}
+            style={actionStyle}
+          >
+            ✓
+          </button>
+          <button
+            ref={editarButton}
+            type="button"
+            aria-label="Editar"
+            onPointerDown={swallowPointerDown}
+            onClick={(event) => {
+              event.stopPropagation();
+              beginEdit();
+            }}
+            style={actionStyle}
+          >
+            ✎
+          </button>
+          <button
+            type="button"
+            aria-label="Apagar"
+            onPointerDown={swallowPointerDown}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(task);
+            }}
+            style={actionStyle}
+          >
+            ×
+          </button>
+        </>
       )}
     </li>
   );

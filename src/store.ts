@@ -72,6 +72,17 @@ function isRealDate(deadline: string): boolean {
 }
 
 /**
+ * The one Deadline predicate. Used on ingress (toTask) *and* on every mutation that sets
+ * a Deadline (create, setDeadline), which is what closes the domain: a Task this module
+ * writes is always a Task toTask() reads back. Before, only the read side checked --
+ * create() would happily persist 2026-02-30, and load() would drop that whole Task on
+ * the next launch.
+ */
+function isDeadline(value: unknown): value is string {
+  return typeof value === "string" && DEADLINE_SHAPE.test(value) && isRealDate(value);
+}
+
+/**
  * Validates one stored entry and rebuilds it from the seven canonical fields.
  * Rebuilding matters: this parses untrusted input -- a hand-edited blob, or a sync
  * payload from a table anyone holding the anon key can write to. Copying the object
@@ -83,15 +94,8 @@ function toTask(value: unknown): Task | null {
   if (typeof t.id !== "string" || t.id.trim() === "") return null;
   if (typeof t.text !== "string" || t.text.trim() === "") return null;
   if (!isKind(t.kind)) return null;
-  if (
-    t.deadline !== null &&
-    !(
-      typeof t.deadline === "string" &&
-      DEADLINE_SHAPE.test(t.deadline) &&
-      isRealDate(t.deadline)
-    )
-  )
-    return null;
+  // null is a valid Deadline; anything else must be one the predicate accepts.
+  if (t.deadline !== null && !isDeadline(t.deadline)) return null;
   if (typeof t.done !== "boolean" || typeof t.deleted !== "boolean") return null;
   // JSON `1e400` parses to Infinity, which would poison every comparison it touches.
   if (
@@ -124,11 +128,14 @@ export function parseTasks(value: unknown): Task[] {
 
 /** A fresh install and corrupted storage are the same code path: an empty list. */
 export function load(): Task[] {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
     return parseTasks(JSON.parse(raw));
   } catch {
+    // getItem itself can throw (quota, security policy, Safari private mode). Storage
+    // is unreachable, not empty -- but there is nothing to show from it either way,
+    // and an empty screen beats a crash on launch.
     return [];
   }
 }
@@ -185,11 +192,16 @@ export function create(
   // Task text is required, so a blank one is not a Task. Capture guards this too, but
   // the invariant belongs to the authoritative write path, not to one caller.
   if (trimmed === "") return tasks;
+  // An invalid deadline must not create a Task that load() drops on the next launch.
+  // The Task itself stays valid -- it just loses its deadline, which Capture's date
+  // input makes hard to hit anyway. The predicate lives here, not in Capture: callers
+  // never re-implement the validation, and the store boundary cannot be bypassed.
+  const storedDeadline = deadline !== null && isDeadline(deadline) ? deadline : null;
   const task: Task = {
     id: crypto.randomUUID(),
     text: trimmed,
     kind,
-    deadline,
+    deadline: storedDeadline,
     done: false,
     deleted: false,
     updatedAt: stampNow(),
@@ -206,6 +218,11 @@ export function editText(tasks: Task[], id: string, text: string): Task[] {
 }
 
 export function setDeadline(tasks: Task[], id: string, deadline: string | null): Task[] {
+  // An invalid deadline is a no-op, not a write: persisting it would leave a Task the
+  // next load() silently drops. Unlike create() there is an existing valid state to
+  // keep, so keeping it beats normalizing to null (which would erase a real deadline
+  // because of one bad input).
+  if (deadline !== null && !isDeadline(deadline)) return tasks;
   return apply(tasks, id, (task) => ({ ...task, deadline }));
 }
 

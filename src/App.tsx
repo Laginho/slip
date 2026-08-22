@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { SURFACE, TEXT_PRIMARY } from "./palette";
+import { SURFACE, TEXT_PRIMARY, TOAST_BG, TOAST_INK } from "./palette";
 import {
   create,
   editText,
@@ -91,6 +91,14 @@ export function App() {
   };
 
   /**
+   * Set when a local write could not be persisted. Deliberately persistent: unlike the
+   * undo toast it has no window to expire, because nothing clears it except a write
+   * that actually lands -- the user must never be left believing an action was saved
+   * when storage refused it.
+   */
+  const [saveError, setSaveError] = useState(false);
+
+  /**
    * A sync result coming home, re-merged into the list as it stands *now*.
    *
    * The result was computed from a snapshot taken before the round trip, and the user can
@@ -129,11 +137,40 @@ export function App() {
     });
   };
 
-  /** A local change: land it, then tell the server about it shortly. */
-  const mutate = (next: Task[]) => {
+  /**
+   * A local change: run the store operation inside the catch boundary, land the result,
+   * then tell the server about it shortly. Returns whether persistence succeeded.
+   *
+   * The operation arrives unevaluated -- `(current) => setDone(current, ...)` -- so that
+   * the localStorage write inside the store happens *here*, inside the try/catch.
+   * Passing an already-computed array cannot catch a quota or security exception: the
+   * expression would have thrown before this function was ever entered. Every local
+   * mutation must go through this boundary -- storage is authoritative, so on failure
+   * nothing is adopted and callers must skip their follow-up UI state (no undo toast,
+   * no cleared Capture fields) and leave the previous list on screen.
+   */
+  const mutate = (operation: (current: Task[]) => Task[]): boolean => {
+    let next: Task[];
+    try {
+      next = operation(latest.current);
+    } catch {
+      setSaveError(true);
+      return false;
+    }
+    // Every store path that actually writes goes through persist(), which returns a new
+    // list; a no-op (blank Capture/edit text, an invalid setDeadline) hands back the
+    // same array untouched. Such a call never touched storage, so it must neither clear
+    // saveError -- a false all-clear while the banner is up -- nor arm a sync for data
+    // that did not change. It still reports success, so harmless follow-ups (a no-op
+    // editor closing) may proceed.
+    const wrote = next !== latest.current;
     adopt(next);
-    window.clearTimeout(syncTimer.current);
-    syncTimer.current = window.setTimeout(roundTrip, SYNC_DEBOUNCE_MS);
+    if (wrote) {
+      setSaveError(false);
+      window.clearTimeout(syncTimer.current);
+      syncTimer.current = window.setTimeout(roundTrip, SYNC_DEBOUNCE_MS);
+    }
+    return true;
   };
 
   useEffect(() => {
@@ -156,24 +193,43 @@ export function App() {
   const current = (task: Task): Task =>
     latest.current.find((held) => held.id === task.id) ?? task;
 
-  const complete = (task: Task) => {
+  /**
+   * Each action reports whether it landed. A false return is the Card's cue to come
+   * back from a swipe flight and Capture's cue to keep what the user typed.
+   */
+  const complete = (task: Task): boolean => {
     const target = current(task);
-    mutate(setDone(latest.current, target.id, true));
+    // The snapshot for undo must be the Task as it was before the action, so it is
+    // taken from `current()` before mutating -- but the toast is only created once the
+    // write has actually persisted. An unpersisted completion must not offer an undo
+    // of something that never happened.
+    if (!mutate((list) => setDone(list, target.id, true))) return false;
     setPending({ snapshot: target, label: "tarefa concluída", token: ++token.current });
+    return true;
   };
 
-  const discard = (task: Task) => {
+  const discard = (task: Task): boolean => {
     const target = current(task);
-    mutate(remove(latest.current, target.id));
+    if (!mutate((list) => remove(list, target.id))) return false;
     setPending({ snapshot: target, label: "tarefa apagada", token: ++token.current });
+    return true;
   };
 
   // Editing is not destructive -- the text is still on screen -- so it gets no toast.
-  const edit = (task: Task, text: string) => mutate(editText(latest.current, task.id, text));
+  const edit = (task: Task, text: string): boolean =>
+    mutate((list) => editText(list, task.id, text));
 
   const undo = () => {
     if (pending === null) return;
-    mutate(restore(latest.current, pending.snapshot));
+    // If restore cannot be persisted the undo stays pending -- and its window restarts:
+    // bumping the token remounts the toast, restarting its five seconds. Returning
+    // early alone is not enough -- the original timer keeps running on the old mount,
+    // expires on schedule, and onExpire drops the snapshot anyway, leaving the Task
+    // permanently gone with no way back.
+    if (!mutate((list) => restore(list, pending.snapshot))) {
+      setPending({ ...pending, token: ++token.current });
+      return;
+    }
     setPending(null);
   };
 
@@ -222,10 +278,26 @@ export function App() {
         />
       )}
 
+      {saveError && (
+        <div
+          role="alert"
+          style={{
+            margin: "0 12px 8px",
+            padding: "8px 14px",
+            borderRadius: 10,
+            background: TOAST_BG,
+            color: TOAST_INK,
+            fontSize: 13,
+          }}
+        >
+          não foi possível salvar suas alterações
+        </div>
+      )}
+
       <CaptureBar
-        onCapture={(text, kind, deadline) => {
-          mutate(create(latest.current, text, kind, deadline));
-        }}
+        onCapture={(text, kind, deadline) =>
+          mutate((list) => create(list, text, kind, deadline))
+        }
       />
     </div>
   );

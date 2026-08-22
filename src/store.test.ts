@@ -67,6 +67,21 @@ describe("load", () => {
     }
   });
 
+  it("returns empty when storage refuses the read", () => {
+    // getItem itself can throw (Safari private mode, security policy). A crash on
+    // launch would be worse than an empty screen.
+    const spy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("denied");
+      });
+    try {
+      expect(load()).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("rejects a Deadline that is not a real YYYY-MM-DD date", () => {
     // The shape regex alone accepts the last three. An impossible date would sort
     // before 1 March, render as 30/02, and roll over to 2 March in the urgency maths.
@@ -347,6 +362,70 @@ describe("the undo window (issue 06)", () => {
     const undone = restore(afterSecond, start[1]);
     expect(undone.find((t) => t.id === "a")!.done).toBe(true);
     expect(openTasks(undone).map((t) => t.id)).toEqual(["b"]);
+  });
+});
+
+describe("deadline domain closure", () => {
+  // The same classes load() already rejects: malformed shapes, impossible calendar
+  // dates, and a 29 February that only exists in leap years.
+  const INVALID: string[] = [
+    "23/08/2026",
+    "2026-8-3",
+    "amanhã",
+    "",
+    "2026-02-30", // the shape regex alone accepts this one
+    "2026-13-01",
+    "2026-00-10",
+    "2027-02-29", // not a leap year
+  ];
+
+  it("create normalizes an invalid deadline to null instead of persisting an unloadable Task", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+
+    for (const deadline of INVALID) {
+      const next = create([], "entregar relatório", "work", deadline);
+      expect(next, deadline).toHaveLength(1);
+      // The Task survives; it just loses its deadline.
+      expect(next[0].deadline, deadline).toBeNull();
+      // And what was written is exactly what the next launch reads back.
+      expect(load(), deadline).toEqual(next);
+    }
+  });
+
+  it("create accepts a real leap day and round-trips it", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+
+    const next = create([], "revisar prova", "college", "2028-02-29");
+    expect(next[0].deadline).toBe("2028-02-29");
+    expect(load()).toEqual(next);
+  });
+
+  it("setDeadline ignores an invalid deadline entirely: no write, no restamp", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+
+    for (const deadline of INVALID) {
+      localStorage.clear();
+      const start = [task({ id: "a", deadline: "2026-09-01", updatedAt: 5 })];
+
+      const next = setDeadline(start, "a", deadline);
+
+      // The existing valid state is kept as-is -- not erased in favour of null.
+      expect(next, deadline).toEqual(start);
+      // A no-op does not touch storage either.
+      expect(load(), deadline).toEqual([]);
+    }
+  });
+
+  it("setDeadline accepts a real leap day and round-trips it", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+
+    const next = setDeadline([task({ id: "a" })], "a", "2028-02-29");
+    expect(next[0].deadline).toBe("2028-02-29");
+    expect(load()).toEqual(next);
   });
 });
 

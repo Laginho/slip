@@ -19,9 +19,10 @@ import { Card } from "./Card";
 type Props = {
   tasks: Task[];
   now: Date;
-  onComplete: (task: Task) => void;
-  onDelete: (task: Task) => void;
-  onEdit: (task: Task, text: string) => void;
+  /** All three report whether the change persisted; false means storage refused it. */
+  onComplete: (task: Task) => boolean;
+  onDelete: (task: Task) => boolean;
+  onEdit: (task: Task, text: string) => boolean;
 };
 
 const LIST: CSSProperties = {

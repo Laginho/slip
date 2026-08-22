@@ -23,12 +23,23 @@ const KIND_STORAGE_KEY = "capture/kind";
 const CHIP_LABEL: Record<Kind, string> = { work: "W", college: "C", chore: "Ch" };
 
 function storedKind(): Kind {
-  const raw = localStorage.getItem(KIND_STORAGE_KEY);
-  return KINDS.some((kind) => kind === raw) ? (raw as Kind) : "work";
+  try {
+    const raw = localStorage.getItem(KIND_STORAGE_KEY);
+    return KINDS.some((kind) => kind === raw) ? (raw as Kind) : "work";
+  } catch {
+    // Storage can refuse reads too (Safari private mode, security policy). The sticky
+    // kind is a preference, never worth crashing the bar over: fall back to work.
+    return "work";
+  }
 }
 
 type Props = {
-  onCapture: (text: string, kind: Kind, deadline: string | null) => void;
+  /**
+   * Returns whether the Task was persisted. A false return -- storage refused the
+   * write -- must leave everything the user typed in place for a retry; the caller
+   * (App) owns the error message.
+   */
+  onCapture: (text: string, kind: Kind, deadline: string | null) => boolean;
 };
 
 export function CaptureBar({ onCapture }: Props) {
@@ -46,13 +57,19 @@ export function CaptureBar({ onCapture }: Props) {
 
   const selectKind = (selected: Kind) => {
     setKind(selected);
-    localStorage.setItem(KIND_STORAGE_KEY, selected);
+    try {
+      localStorage.setItem(KIND_STORAGE_KEY, selected);
+    } catch {
+      // The selection still applies for this session; only the stickiness is lost.
+    }
     inputRef.current?.focus();
   };
 
   const capture = () => {
     if (text.trim() === "") return;
-    onCapture(text.trim(), kind, deadline === "" ? null : deadline);
+    // Clearing the fields *is* the success signal: when storage refused the write the
+    // input keeps text, kind and deadline exactly as typed, so a retry costs nothing.
+    if (!onCapture(text.trim(), kind, deadline === "" ? null : deadline)) return;
     setText("");
     setDeadline("");
     inputRef.current?.focus();
