@@ -11,7 +11,8 @@ import { Card } from "./Card";
  * below, separated by whitespace only.
  *
  * Owns the list's single clock and passes it to each Card as `now`, refreshing on
- * window focus and on visibilitychange: a Card due today must read as due today after
+ * window focus, on visibilitychange, and at each local midnight (an always-open
+ * desktop window never fires focus): a Card due today must read as due today after
  * local midnight without a reload.
  *
  * Each section is a <ul>; Card renders the <li>.
@@ -34,9 +35,24 @@ export function TaskList({ tasks }: Props) {
 
   useEffect(() => {
     const refresh = () => setNow(new Date());
+
+    // Re-arm from a fresh Date every time: a day is 23 or 25 hours across DST, and
+    // the timer must land on the next local midnight, not on +24h.
+    let midnightTimer: number;
+    const scheduleMidnight = () => {
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      midnightTimer = window.setTimeout(() => {
+        refresh();
+        scheduleMidnight();
+      }, next.getTime() - now.getTime());
+    };
+    scheduleMidnight();
+
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
+      window.clearTimeout(midnightTimer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
@@ -56,14 +72,14 @@ export function TaskList({ tasks }: Props) {
   return (
     <>
       {dated.length > 0 && (
-        <ul style={LIST}>
+        <ul role="list" style={LIST}>
           {dated.map((task) => (
             <Card key={task.id} task={task} now={now} />
           ))}
         </ul>
       )}
       {dateless.length > 0 && (
-        <ul style={dated.length > 0 ? { ...LIST, marginTop: 24 } : LIST}>
+        <ul role="list" style={dated.length > 0 ? { ...LIST, marginTop: 24 } : LIST}>
           {dateless.map((task) => (
             <Card key={task.id} task={task} now={now} />
           ))}

@@ -1,18 +1,17 @@
 import { useState } from "react";
-import { CAPTURE_BG, HAIRLINE, SURFACE, TEXT_PRIMARY, TEXT_QUIET } from "./palette";
-import { load, type Task } from "./store";
+import { SURFACE, TEXT_PRIMARY } from "./palette";
+import { create, load, type Task } from "./store";
+import { CaptureBar } from "./components/CaptureBar";
 import { TaskList } from "./components/TaskList";
 
 /**
  * The single screen. One scrolling list, one input pinned to the bottom.
  * No router, no tabs, no nav bar: the Archive (issue 08) is a section, not a route.
- *
- * Issue 01 lays the shell out only. The bar below is a placeholder that issue 04
- * replaces with <CaptureBar />, and the list area is filled by issue 05.
  */
 export function App() {
-  // The setter arrives with the capture ticket (issue 04).
-  const [tasks] = useState<Task[]>(load);
+  // Store mutations run outside setState (see the store.ts header): create() takes
+  // the current list, never an updater, or StrictMode mints two ids per create.
+  const [tasks, setTasks] = useState<Task[]>(load);
 
   return (
     <div
@@ -43,31 +42,11 @@ export function App() {
         <TaskList tasks={tasks} />
       </main>
 
-      <div
-        style={{
-          flex: "none",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 12px",
-          paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-          background: CAPTURE_BG,
-          borderTop: `1px solid ${HAIRLINE}`,
+      <CaptureBar
+        onCapture={(text, kind, deadline) => {
+          setTasks(create(tasks, text, kind, deadline));
         }}
-      >
-        <span style={{ color: TEXT_QUIET }}>[W] [C] [Ch]</span>
-        <input
-          placeholder="uma tarefa..."
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            padding: "8px 0",
-          }}
-        />
-      </div>
+      />
     </div>
   );
 }
