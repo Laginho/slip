@@ -1,13 +1,27 @@
 import { defineConfig } from "vitest/config";
+import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { SURFACE } from "./src/palette";
 
-// Keep in sync with MANIFEST_THEME in src/palette.ts and the meta tag in index.html.
-const THEME = "#f5f4f2";
+/**
+ * Resolves index.html's theme-color from the palette at build time.
+ *
+ * Without this the colour is a second literal living outside src/palette.ts, and tuning
+ * the palette -- which is the entire point of that file -- silently leaves the installed
+ * PWA's window chrome and splash on the old value.
+ */
+const themeColor: Plugin = {
+  name: "task-tracker:theme-color",
+  transformIndexHtml(html) {
+    return html.replace("%THEME_COLOR%", SURFACE);
+  },
+};
 
 export default defineConfig({
   plugins: [
     react(),
+    themeColor,
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png"],
@@ -18,8 +32,8 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        background_color: THEME,
-        theme_color: THEME,
+        background_color: SURFACE,
+        theme_color: SURFACE,
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },

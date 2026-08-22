@@ -57,6 +57,57 @@ describe("load", () => {
     );
     expect(load()).toEqual([good]);
   });
+
+  it("rejects a Kind that is only an inherited property name", () => {
+    // `kind in KIND_ORDER` would accept every one of these, and the bad record would
+    // then yield NaN from the tiebreak and resolve no Card background.
+    for (const kind of ["toString", "constructor", "__proto__", "valueOf", "", "Work"]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([{ ...task({ id: "a" }), kind }]));
+      expect(load(), kind).toEqual([]);
+    }
+  });
+
+  it("rejects a Deadline that is not YYYY-MM-DD", () => {
+    for (const deadline of ["23/08/2026", "2026-8-3", "amanhã", ""]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "a", deadline })]));
+      expect(load(), deadline).toEqual([]);
+    }
+  });
+
+  it("rejects a non-finite updatedAt", () => {
+    // JSON `1e400` parses to Infinity, which poisons every comparison it reaches.
+    localStorage.setItem(
+      STORAGE_KEY,
+      '[{"id":"a","text":"x","kind":"work","deadline":null,"done":false,"deleted":false,"updatedAt":1e400}]',
+    );
+    expect(load()).toEqual([]);
+  });
+
+  it("rejects a blank id or blank text", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "a", text: "   " })]));
+    expect(load()).toEqual([]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "" })]));
+    expect(load()).toEqual([]);
+  });
+
+  it("rebuilds each Task from the seven canonical fields, dropping extras", () => {
+    // This parses untrusted input: a hand-edited blob, or a sync payload from a table
+    // anyone with the anon key can write. An eighth field must not ride along.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([{ ...task({ id: "a" }), priority: "high", note: "smuggled" }]),
+    );
+    const [loaded] = load();
+    expect(Object.keys(loaded).sort()).toEqual([
+      "deadline",
+      "deleted",
+      "done",
+      "id",
+      "kind",
+      "text",
+      "updatedAt",
+    ]);
+  });
 });
 
 describe("mutations", () => {
@@ -126,6 +177,28 @@ describe("mutations", () => {
     const start = [task({ id: "a" })];
     expect(setDone(start, "nope", true)).toEqual(start);
   });
+
+  it("refuses to create a Task with no text", () => {
+    expect(create([], "   ", "work")).toEqual([]);
+    expect(create([], "", "work")).toEqual([]);
+  });
+
+  it("refuses to erase the text of an existing Task", () => {
+    // Clearing the field during an in-place edit is not a delete.
+    const start = [task({ id: "a", text: "original" })];
+    expect(editText(start, "a", "   ")).toEqual(start);
+  });
+
+  it("keeps updatedAt climbing even when the wall clock steps backwards", () => {
+    // NTP correction or a timezone change. Without this the later edit loses the
+    // merge to the earlier one and the user's change silently reverts.
+    vi.useFakeTimers();
+    vi.setSystemTime(5000);
+    const created = create([], "uma tarefa", "work");
+    vi.setSystemTime(1000);
+    const edited = setDone(created, created[0].id, true);
+    expect(edited[0].updatedAt).toBeGreaterThan(created[0].updatedAt);
+  });
 });
 
 describe("restore (the undo primitive)", () => {
@@ -151,8 +224,24 @@ describe("restore (the undo primitive)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(9000);
     const before = task({ id: "a", updatedAt: 5 });
-    const undone = restore(remove([before], "a"), before);
-    expect(undone[0].updatedAt).toBe(9000);
+    const deleted = remove([before], "a");
+    const undone = restore(deleted, before);
+    expect(undone[0].updatedAt).toBeGreaterThan(before.updatedAt);
+    expect(undone[0].updatedAt).toBeGreaterThan(deleted[0].updatedAt);
+  });
+
+  it("beats the delete even when both land in the same millisecond", () => {
+    // The merge rule only promises the *higher* updatedAt wins. A tie is resolved
+    // arbitrarily, and if the tombstone wins the Task vanishes at the next sync --
+    // which is merge case 4, the bug this whole design exists to prevent.
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    const before = task({ id: "a", updatedAt: 1000 });
+    const deleted = remove([before], "a");
+    const undone = restore(deleted, before);
+    expect(deleted[0].deleted).toBe(true);
+    expect(undone[0].deleted).toBe(false);
+    expect(undone[0].updatedAt).toBeGreaterThan(deleted[0].updatedAt);
   });
 
   it("persists, and reinserts a Task that is no longer in the list", () => {
@@ -190,6 +279,21 @@ describe("openTasks", () => {
       task({ id: "no-3" }),
     ];
     expect(openTasks(tasks).map((t) => t.id)).toEqual(["dated", "no-1", "no-2", "no-3"]);
+  });
+
+  it("does not apply the Kind tiebreak to dateless Tasks", () => {
+    // The tiebreak exists to order Tasks that share a Deadline. Dateless Tasks are
+    // ordered by creation alone, so a Chore captured first stays above a later Work.
+    const tasks = [
+      task({ id: "chore-first", kind: "chore" }),
+      task({ id: "college-second", kind: "college" }),
+      task({ id: "work-third", kind: "work" }),
+    ];
+    expect(openTasks(tasks).map((t) => t.id)).toEqual([
+      "chore-first",
+      "college-second",
+      "work-third",
+    ]);
   });
 
   it("excludes done and deleted Tasks", () => {
