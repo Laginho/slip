@@ -50,5 +50,7 @@ export const OVERDUE_RED = "#ff7a68";
 export const SURFACE = "#f5f4f2";
 export const TEXT_PRIMARY = "#1a1a1a";
 export const TEXT_QUIET = "#8a8783";
+export const TOAST_BG = "#2b2a28";
+export const TOAST_INK = "#f7f6f4";
 export const HAIRLINE = "#e2e0dc";
 export const CAPTURE_BG = "#ffffff";

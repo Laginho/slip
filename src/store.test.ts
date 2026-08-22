@@ -252,6 +252,57 @@ describe("restore (the undo primitive)", () => {
   });
 });
 
+describe("the undo window (issue 06)", () => {
+  /** Everything the user can see. updatedAt is expected to move; nothing else may. */
+  function visible(task: Task) {
+    const { id, text, kind, deadline, done, deleted } = task;
+    return { id, text, kind, deadline, done, deleted };
+  }
+
+  it("complete then undo puts the Task back in the Open list", () => {
+    const before = task({ id: "a", text: "entregar relatório", deadline: "2026-08-30" });
+
+    const completed = setDone([before], "a", true);
+    expect(openTasks(completed)).toEqual([]);
+    expect(archive(completed).map((t) => t.id)).toEqual(["a"]);
+
+    const undone = restore(completed, before);
+    expect(visible(undone[0])).toEqual(visible(before));
+    expect(openTasks(undone).map((t) => t.id)).toEqual(["a"]);
+    expect(archive(undone)).toEqual([]);
+  });
+
+  it("delete then undo puts the Task back in the Open list", () => {
+    const before = task({ id: "a", text: "pagar aluguel" });
+
+    const removed = remove([before], "a");
+    expect(openTasks(removed)).toEqual([]);
+    expect(archive(removed)).toEqual([]);
+
+    const undone = restore(removed, before);
+    expect(visible(undone[0])).toEqual(visible(before));
+    expect(openTasks(undone).map((t) => t.id)).toEqual(["a"]);
+  });
+
+  it("a second action leaves the first one applied", () => {
+    // Undo is per-action, not a stack: a second action replaces the pending toast and
+    // applies the first. That falls out of applying each action immediately -- the
+    // toast only ever holds a snapshot to restore from, never a deferred commit.
+    const start = [task({ id: "a" }), task({ id: "b" })];
+
+    const afterFirst = setDone(start, "a", true);
+    const afterSecond = remove(afterFirst, "b");
+
+    expect(afterSecond.find((t) => t.id === "a")!.done).toBe(true);
+    expect(afterSecond.find((t) => t.id === "b")!.deleted).toBe(true);
+    expect(openTasks(afterSecond)).toEqual([]);
+    // Undoing the second must not disturb the first.
+    const undone = restore(afterSecond, start[1]);
+    expect(undone.find((t) => t.id === "a")!.done).toBe(true);
+    expect(openTasks(undone).map((t) => t.id)).toEqual(["b"]);
+  });
+});
+
 describe("openTasks", () => {
   it("orders dated Tasks by deadline ascending", () => {
     const tasks = [
