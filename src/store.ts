@@ -106,23 +106,33 @@ function toTask(value: unknown): Task | null {
   };
 }
 
+/**
+ * Validate an unknown value into a Task list, dropping whatever does not qualify.
+ * Shared with sync.ts: a row from the remote table deserves exactly as much trust as a
+ * hand-edited localStorage blob, since that table has one baked-in key and no auth.
+ */
+export function parseTasks(value: unknown): Task[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(toTask).filter((task): task is Task => task !== null);
+}
+
 /** A fresh install and corrupted storage are the same code path: an empty list. */
 export function load(): Task[] {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(toTask).filter((task): task is Task => task !== null);
+    return parseTasks(JSON.parse(raw));
   } catch {
     return [];
   }
 }
 
-function save(tasks: Task[]): Task[] {
+/** Write the whole list. Exported for sync.ts, which persists the merge result. */
+export function persist(tasks: Task[]): Task[] {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   return tasks;
 }
+
 
 /**
  * The next updatedAt for a Task that already exists: strictly greater than the value it
@@ -140,7 +150,7 @@ function nextStamp(previous: number): number {
 
 /** The only way a Task changes. Guarantees updatedAt is stamped -- issue 09 rests on it. */
 function apply(tasks: Task[], id: string, change: (task: Task) => Task): Task[] {
-  return save(
+  return persist(
     tasks.map((task) =>
       task.id === id ? { ...change(task), updatedAt: nextStamp(task.updatedAt) } : task,
     ),
@@ -167,7 +177,7 @@ export function create(
     updatedAt: Date.now(),
   };
   // Appended, so the dateless section reads in creation order.
-  return save([...tasks, task]);
+  return persist([...tasks, task]);
 }
 
 export function editText(tasks: Task[], id: string, text: string): Task[] {
@@ -200,7 +210,7 @@ export function restore(tasks: Task[], previous: Task): Task[] {
   // of the two is newer, and the one in the list is the delete this is reversing.
   const beat = Math.max(previous.updatedAt, current?.updatedAt ?? 0);
   const restored: Task = { ...previous, updatedAt: nextStamp(beat) };
-  return save(
+  return persist(
     current === undefined
       ? [...tasks, restored]
       : tasks.map((task) => (task.id === previous.id ? restored : task)),
