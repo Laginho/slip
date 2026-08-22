@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { CAPTURE_BG, HAIRLINE, SURFACE, TEXT_PRIMARY, TEXT_QUIET } from "./palette";
+import { load, type Task } from "./store";
+import { TaskList } from "./components/TaskList";
 
 /**
  * The single screen. One scrolling list, one input pinned to the bottom.
@@ -8,6 +11,9 @@ import { CAPTURE_BG, HAIRLINE, SURFACE, TEXT_PRIMARY, TEXT_QUIET } from "./palet
  * replaces with <CaptureBar />, and the list area is filled by issue 05.
  */
 export function App() {
+  // The setter arrives with the capture ticket (issue 04).
+  const [tasks] = useState<Task[]>(load);
+
   return (
     <div
       style={{
@@ -34,7 +40,7 @@ export function App() {
           gap: 8,
         }}
       >
-        <p style={{ color: TEXT_QUIET, textAlign: "center", margin: 0 }}>nada por aqui</p>
+        <TaskList tasks={tasks} />
       </main>
 
       <div
