@@ -67,26 +67,46 @@ describe("load", () => {
     }
   });
 
-  it("rejects a Deadline that is not YYYY-MM-DD", () => {
-    for (const deadline of ["23/08/2026", "2026-8-3", "amanhã", ""]) {
+  it("rejects a Deadline that is not a real YYYY-MM-DD date", () => {
+    // The shape regex alone accepts the last three. An impossible date would sort
+    // before 1 March, render as 30/02, and roll over to 2 March in the urgency maths.
+    for (const deadline of ["23/08/2026", "2026-8-3", "amanhã", "", "2026-02-30", "2026-13-01", "2026-00-10"]) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "a", deadline })]));
       expect(load(), deadline).toEqual([]);
     }
   });
 
-  it("rejects a non-finite updatedAt", () => {
+  it("accepts a real leap day", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "a", deadline: "2028-02-29" })]));
+    expect(load()).toHaveLength(1);
+  });
+
+  it("rejects an updatedAt that cannot be ordered or is absurd", () => {
     // JSON `1e400` parses to Infinity, which poisons every comparison it reaches.
     localStorage.setItem(
       STORAGE_KEY,
       '[{"id":"a","text":"x","kind":"work","deadline":null,"done":false,"deleted":false,"updatedAt":1e400}]',
     );
     expect(load()).toEqual([]);
+
+    for (const updatedAt of [
+      Number.MAX_VALUE, // previous + 1 === previous, so the monotonic stamp stops moving
+      1e308,
+      9e15, // still incrementable, but dates the Task to the year 287396
+      -1,
+      1.5,
+    ]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "a", updatedAt })]));
+      expect(load(), String(updatedAt)).toEqual([]);
+    }
   });
 
-  it("rejects a blank id or blank text", () => {
+  it("rejects a blank or whitespace-only id, and blank text", () => {
+    for (const id of ["", "   "]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id })]));
+      expect(load(), JSON.stringify(id)).toEqual([]);
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "a", text: "   " })]));
-    expect(load()).toEqual([]);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([task({ id: "" })]));
     expect(load()).toEqual([]);
   });
 

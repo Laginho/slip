@@ -2,7 +2,9 @@ import { defineConfig } from "vitest/config";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-import { SURFACE } from "./src/palette";
+// Explicit .ts extension: Vite's planned native config loader will not resolve the
+// extensionless form, and both the build and the test run warn about it today.
+import { SURFACE } from "./src/palette.ts";
 
 /**
  * Resolves index.html's theme-color from the palette at build time.

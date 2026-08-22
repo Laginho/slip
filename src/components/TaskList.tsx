@@ -20,6 +20,9 @@ import { Card } from "./Card";
 
 type Props = {
   tasks: Task[];
+  onComplete: (task: Task) => void;
+  onDelete: (task: Task) => void;
+  onEdit: (task: Task, text: string) => void;
 };
 
 const LIST: CSSProperties = {
@@ -30,7 +33,7 @@ const LIST: CSSProperties = {
   gap: 8,
 };
 
-export function TaskList({ tasks }: Props) {
+export function TaskList({ tasks, onComplete, onDelete, onEdit }: Props) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -69,20 +72,27 @@ export function TaskList({ tasks }: Props) {
   const dated = open.filter((task) => task.deadline !== null);
   const dateless = open.filter((task) => task.deadline === null);
 
+  const card = (task: Task) => (
+    <Card
+      key={task.id}
+      task={task}
+      now={now}
+      onComplete={onComplete}
+      onDelete={onDelete}
+      onEdit={onEdit}
+    />
+  );
+
   return (
     <>
       {dated.length > 0 && (
         <ul role="list" style={LIST}>
-          {dated.map((task) => (
-            <Card key={task.id} task={task} now={now} />
-          ))}
+          {dated.map(card)}
         </ul>
       )}
       {dateless.length > 0 && (
         <ul role="list" style={dated.length > 0 ? { ...LIST, marginTop: 24 } : LIST}>
-          {dateless.map((task) => (
-            <Card key={task.id} task={task} now={now} />
-          ))}
+          {dateless.map(card)}
         </ul>
       )}
     </>

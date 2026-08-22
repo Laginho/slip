@@ -45,6 +45,27 @@ function isKind(value: unknown): value is Kind {
 const DEADLINE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * An upper bound on updatedAt, not just finiteness.
+ *
+ * Two reasons, both real. Near Number.MAX_VALUE, `previous + 1 === previous` -- float
+ * spacing exceeds 1 -- so the monotonic stamp silently stops incrementing and the
+ * merge-case-4 tie comes straight back. And a merely absurd value like 9e15 stays
+ * incrementable but dates the Task to the year 287396, pinning it to the top of the
+ * Archive forever. The year 2100 leaves room for any realistic clock skew between
+ * devices while rejecting both.
+ */
+const MAX_STAMP = Date.UTC(2100, 0, 1);
+
+/** The shape regex accepts 2026-02-30 and 2026-13-01. A round-trip does not. */
+function isRealDate(deadline: string): boolean {
+  const [year, month, day] = deadline.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+  );
+}
+
+/**
  * Validates one stored entry and rebuilds it from the seven canonical fields.
  * Rebuilding matters: this parses untrusted input -- a hand-edited blob, or a sync
  * payload from a table anyone holding the anon key can write to. Copying the object
@@ -53,14 +74,27 @@ const DEADLINE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
 function toTask(value: unknown): Task | null {
   if (typeof value !== "object" || value === null) return null;
   const t = value as Record<string, unknown>;
-  if (typeof t.id !== "string" || t.id === "") return null;
+  if (typeof t.id !== "string" || t.id.trim() === "") return null;
   if (typeof t.text !== "string" || t.text.trim() === "") return null;
   if (!isKind(t.kind)) return null;
-  if (t.deadline !== null && !(typeof t.deadline === "string" && DEADLINE_SHAPE.test(t.deadline)))
+  if (
+    t.deadline !== null &&
+    !(
+      typeof t.deadline === "string" &&
+      DEADLINE_SHAPE.test(t.deadline) &&
+      isRealDate(t.deadline)
+    )
+  )
     return null;
   if (typeof t.done !== "boolean" || typeof t.deleted !== "boolean") return null;
   // JSON `1e400` parses to Infinity, which would poison every comparison it touches.
-  if (typeof t.updatedAt !== "number" || !Number.isFinite(t.updatedAt)) return null;
+  if (
+    typeof t.updatedAt !== "number" ||
+    !Number.isSafeInteger(t.updatedAt) ||
+    t.updatedAt < 0 ||
+    t.updatedAt > MAX_STAMP
+  )
+    return null;
   return {
     id: t.id,
     text: t.text,

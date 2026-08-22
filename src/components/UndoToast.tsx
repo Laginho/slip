@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { TOAST_BG, TOAST_INK } from "../palette";
 
 /**
@@ -29,10 +29,20 @@ type Props = {
 const WINDOW_MS = 5000;
 
 export function UndoToast({ label, onUndo, onExpire }: Props) {
+  // The window is bound to this mount, and the parent remounts per action. Depending on
+  // onExpire instead would let any unrelated parent render -- a keystroke in the
+  // controlled capture input, say -- restart the five seconds, extending the window
+  // indefinitely while the user types. The ref keeps the call current without making
+  // the timer's lifetime depend on a caller remembering to memoise.
+  const expire = useRef(onExpire);
   useEffect(() => {
-    const timer = setTimeout(onExpire, WINDOW_MS);
+    expire.current = onExpire;
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => expire.current(), WINDOW_MS);
     return () => clearTimeout(timer);
-  }, [onExpire]);
+  }, []);
 
   return (
     <div
