@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { SURFACE, TEXT_PRIMARY } from "./palette";
-import { create, editText, load, remove, restore, setDone, type Task } from "./store";
-import { sync } from "./sync";
+import {
+  create,
+  editText,
+  load,
+  persist,
+  remove,
+  restore,
+  setDone,
+  type Task,
+} from "./store";
+import { merge, sync } from "./sync";
 import { Archive } from "./components/Archive";
 import { CaptureBar } from "./components/CaptureBar";
 import { TaskList } from "./components/TaskList";
@@ -32,6 +41,39 @@ export function App() {
   const token = useRef(0);
 
   /**
+   * One clock for the whole screen, refreshed on focus, on visibilitychange, and at each
+   * local midnight -- an always-open desktop window never fires focus. Both the Cards'
+   * Urgency and the Archive's window read it, so they can never disagree about what day
+   * it is, and neither can go stale overnight without a reload.
+   */
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const refresh = () => setNow(new Date());
+
+    // Re-armed from a fresh Date each time: a day is 23 or 25 hours across DST, so the
+    // timer has to land on the next local midnight rather than on +24h.
+    let midnight: number;
+    const scheduleMidnight = () => {
+      const at = new Date();
+      const next = new Date(at.getFullYear(), at.getMonth(), at.getDate() + 1);
+      midnight = window.setTimeout(() => {
+        refresh();
+        scheduleMidnight();
+      }, next.getTime() - at.getTime());
+    };
+    scheduleMidnight();
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearTimeout(midnight);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+
+  /**
    * Mutations read the list through this ref rather than the render closure.
    *
    * Store mutations must run outside setState -- they write to localStorage and mint
@@ -42,39 +84,88 @@ export function App() {
   const latest = useRef(tasks);
   const syncTimer = useRef<number | undefined>(undefined);
 
-  /** A merge arriving from the server. Landed, but never echoed back. */
+  /** The list has changed and storage already knows. Show it. */
   const adopt = (next: Task[]) => {
     latest.current = next;
     setTasks(next);
+  };
+
+  /**
+   * A sync result coming home, re-merged into the list as it stands *now*.
+   *
+   * The result was computed from a snapshot taken before the round trip, and the user can
+   * capture, complete or delete a Task while it is in the air -- opening the app and
+   * typing straight away is the ordinary case, not a rare one. Adopting the result
+   * directly would replace the list with one computed before those changes existed, and
+   * the next sync would persist that, erasing them for good. Re-merging is the fix, and
+   * it is the same union rule as everywhere else: for any Task the two sides disagree
+   * about, the higher updatedAt wins, and a local change made during the flight is by
+   * definition stamped later than the snapshot it is being merged against.
+   *
+   * Persistence lives here rather than in sync(), so exactly one layer writes storage,
+   * and it never writes from a stale snapshot. If the write is refused -- quota, or
+   * Safari's private mode, where setItem throws -- nothing is adopted: storage is
+   * authoritative, so the UI must not claim to hold something that was not stored.
+   */
+  const settle = (result: Task[]) => {
+    try {
+      adopt(persist(merge(latest.current, result)));
+    } catch {
+      // Nothing to say to the user and nothing to retry. The local list is intact and
+      // the next successful sync sends it again.
+    }
+  };
+
+  /**
+   * A round trip, fired and forgotten. Never awaited by anything the user is waiting for,
+   * and a failure is silent: offline, the app behaves exactly as it does now and syncs on
+   * the next success. sync() resolves with the snapshot itself when it could not do
+   * anything -- unconfigured, offline, a bad response -- and there is nothing to settle.
+   */
+  const roundTrip = () => {
+    const snapshot = latest.current;
+    void sync(snapshot).then((result) => {
+      if (result !== snapshot) settle(result);
+    });
   };
 
   /** A local change: land it, then tell the server about it shortly. */
   const mutate = (next: Task[]) => {
     adopt(next);
     window.clearTimeout(syncTimer.current);
-    syncTimer.current = window.setTimeout(() => {
-      void sync(latest.current).then(adopt);
-    }, SYNC_DEBOUNCE_MS);
+    syncTimer.current = window.setTimeout(roundTrip, SYNC_DEBOUNCE_MS);
   };
 
-  // Sync on open. Never awaited by anything the user is waiting for, and a failure is
-  // silent: offline, the app behaves exactly as it does now and syncs on the next success.
   useEffect(() => {
-    void sync(latest.current).then(adopt);
+    roundTrip();
     return () => window.clearTimeout(syncTimer.current);
   }, []);
 
   // Every destructive action is applied immediately and offers a way back, rather than
   // being held for five seconds. That is what makes "a second action replaces the
   // pending toast, applying the first" free: the first was never deferred.
+  /**
+   * The Task as the store holds it now, not as the caller's prop had it.
+   *
+   * A Card can act on a prop from an earlier render: its exit guard fires on a timeout
+   * that closed over the render where the swipe began, and a sync landing mid-flight can
+   * replace that Task's text underneath it. The mutation itself only needs the id, but
+   * the snapshot is what undo restores -- and restoring a stale one would put the old
+   * text back over the newer edit, with a stamp that beats it.
+   */
+  const current = (task: Task): Task =>
+    latest.current.find((held) => held.id === task.id) ?? task;
+
   const complete = (task: Task) => {
-    mutate(setDone(latest.current, task.id, true));
-    setPending({ snapshot: task, label: "tarefa concluída", token: ++token.current });
+    const target = current(task);
+    mutate(setDone(latest.current, target.id, true));
+    setPending({ snapshot: target, label: "tarefa concluída", token: ++token.current });
   };
 
   const discard = (task: Task) => {
-    mutate(remove(latest.current, task.id));
-    setPending({ snapshot: task, label: "tarefa apagada", token: ++token.current });
+    const target = current(task);
+    mutate(remove(latest.current, target.id));
+    setPending({ snapshot: target, label: "tarefa apagada", token: ++token.current });
   };
 
   // Editing is not destructive -- the text is still on screen -- so it gets no toast.
@@ -112,8 +203,14 @@ export function App() {
           gap: 8,
         }}
       >
-        <TaskList tasks={tasks} onComplete={complete} onDelete={discard} onEdit={edit} />
-        <Archive tasks={tasks} />
+        <TaskList
+          tasks={tasks}
+          now={now}
+          onComplete={complete}
+          onDelete={discard}
+          onEdit={edit}
+        />
+        <Archive tasks={tasks} now={now} />
       </main>
 
       {pending !== null && (

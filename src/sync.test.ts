@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "./store";
-import { STORAGE_KEY } from "./store";
 import { merge, sync } from "./sync";
 
 function task(over: Partial<Task> & Pick<Task, "id">): Task {
@@ -87,6 +86,14 @@ describe("merge — the six spec cases", () => {
     // would each keep their own copy and disagree forever.
     expect(one[0]).toEqual(other[0]);
   });
+
+  it("an equal-stamp delete beats an edit, from either direction", () => {
+    const live = task({ id: "a", text: "edited", deleted: false, updatedAt: 100 });
+    const tombstone = task({ id: "a", text: "before", deleted: true, updatedAt: 100 });
+
+    expect(merge([live], [tombstone])).toEqual([tombstone]);
+    expect(merge([tombstone], [live])).toEqual([tombstone]);
+  });
 });
 
 describe("merge — beyond the table", () => {
@@ -96,6 +103,14 @@ describe("merge — beyond the table", () => {
       [task({ id: "a", updatedAt: 2 }), task({ id: "b", updatedAt: 2 })],
     );
     expect(merged).toHaveLength(2);
+  });
+
+  it("reduces duplicate ids the same way on both sides", () => {
+    const older = task({ id: "a", text: "older", updatedAt: 1 });
+    const newer = task({ id: "a", text: "newer", updatedAt: 2 });
+
+    expect(merge([newer, older], [])).toEqual([newer]);
+    expect(merge([], [newer, older])).toEqual([newer]);
   });
 
   it("keeps deleted Tasks in the merged list rather than dropping them", () => {
@@ -146,7 +161,7 @@ describe("sync", () => {
     expect(await sync(local)).toEqual(local);
   });
 
-  it("merges what comes back and persists the result", async () => {
+  it("merges what comes back without writing the caller's stale snapshot", async () => {
     const remote = task({ id: "b", text: "do servidor" });
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -156,8 +171,9 @@ describe("sync", () => {
     const merged = await sync(local);
 
     expect(merged.map((t) => t.id).sort()).toEqual(["a", "b"]);
-    // Local storage is authoritative for the UI, so the merge has to land there too.
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(2);
+    // The caller owns persistence because only it can rebase this result over changes
+    // made while the request was in flight.
+    expect(localStorage.length).toBe(0);
     expect(fetchSpy).toHaveBeenCalledTimes(2); // one read, one write
   });
 

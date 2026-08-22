@@ -1,4 +1,4 @@
-import { parseTasks, persist, type Task } from "./store";
+import { parseTasks, type Task } from "./store";
 
 /**
  * Whole-document union sync. See /docs/adr/0001-local-first-whole-document-sync.md.
@@ -56,9 +56,18 @@ function winner(mine: Task, theirs: Task): Task {
   if (mine.updatedAt !== theirs.updatedAt) {
     return mine.updatedAt > theirs.updatedAt ? mine : theirs;
   }
-  // Equal stamps. Preferring "mine" would be deterministic on each device and still
-  // wrong: both devices would keep their own copy and never agree. Choosing by content
-  // means both sides compute the same winner and converge.
+  // Equal stamps: two devices acted on the same Task inside the same millisecond.
+  // Preferring "mine" would be deterministic on each device and still wrong -- both
+  // would keep their own copy and never agree. The tie has to be settled by the pair
+  // itself, so that both sides compute the same winner.
+  //
+  // A tombstone takes it first. This is a real choice, not a detail: with only a content
+  // comparison, a simultaneous delete-here / edit-there is decided by whichever text
+  // happens to sort lower, and half the time that resurrects the deletion. Losing an
+  // edit costs a retype. Losing a delete means a Task the user got rid of reappearing --
+  // and reappearing on every sync until they delete it again. A genuinely later edit
+  // still wins, because a millisecond later is a higher stamp and never reaches here.
+  if (mine.deleted !== theirs.deleted) return mine.deleted ? mine : theirs;
   return fingerprint(mine) <= fingerprint(theirs) ? mine : theirs;
 }
 
@@ -71,17 +80,30 @@ function winner(mine: Task, theirs: Task): Task {
  */
 export function merge(local: Task[], remote: unknown): Task[] {
   const byId = new Map<string, Task>();
-  for (const task of local) byId.set(task.id, task);
-  for (const task of parseTasks(remote)) {
+  // Both sides are reduced the same way, local included. A duplicated id -- from a
+  // hand-edited blob -- resolved by position on one side and by winner() on the other
+  // would make merge(a, b) and merge(b, a) disagree about which copy survives.
+  const absorb = (task: Task) => {
     const mine = byId.get(task.id);
     byId.set(task.id, mine === undefined ? task : winner(mine, task));
-  }
+  };
+  for (const task of local) absorb(task);
+  for (const task of parseTasks(remote)) absorb(task);
   return [...byId.values()];
 }
 
 /**
- * One round trip: read the table, merge, persist, then push the merged list back.
- * Returns the merged list, or the local one untouched if anything at all went wrong.
+ * One round trip: read the table, merge, push the merged list back. Returns the merged
+ * list, or the local one untouched if anything at all went wrong.
+ *
+ * Writes nothing to storage and touches no UI state. Both belong to the caller, for one
+ * reason: `local` is a snapshot taken before the round trip, and the user can capture,
+ * complete or delete a Task while it is in the air. Persisting from here would write a
+ * list computed before those changes existed and erase them. The caller holds the
+ * current list, so the caller re-merges this result into it and lands that -- see the
+ * settle() comment in App.tsx.
+ *
+ * Never rejects. Every failure path returns `local`, and the caller has no catch.
  */
 export async function sync(local: Task[]): Promise<Task[]> {
   const cfg = config();
@@ -97,10 +119,6 @@ export async function sync(local: Task[]): Promise<Task[]> {
   } catch {
     return local;
   }
-
-  // Land the merge locally before the upload: the UI reads from storage, and the push
-  // is the half that is allowed to fail.
-  persist(merged);
 
   try {
     await fetch(`${cfg.url}/rest/v1/${TABLE}`, {

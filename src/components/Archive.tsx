@@ -20,9 +20,8 @@ import { TEXT_QUIET } from "../palette";
 
 type Props = {
   tasks: Task[];
+  now: Date;
 };
-
-const DAY_MS = 86_400_000;
 
 const LIST: CSSProperties = {
   margin: 0,
@@ -42,7 +41,7 @@ const LINK: CSSProperties = {
   cursor: "pointer",
 };
 
-export function Archive({ tasks }: Props) {
+export function Archive({ tasks, now }: Props) {
   const [open, setOpen] = useState(false);
   const [allTime, setAllTime] = useState(false);
 
@@ -60,7 +59,16 @@ export function Archive({ tasks }: Props) {
     );
   }
 
-  const recent = done.filter((task) => Date.now() - task.updatedAt < 7 * DAY_MS);
+  // "Last 7 days" means seven local calendar dates: today and the six before it.
+  // App refreshes `now` at local midnight, so an always-open Archive drops the old
+  // seventh day at the boundary without waiting for an unrelated render. Constructing
+  // the cutoff by calendar components also survives 23/25-hour DST days.
+  const recentSince = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 6,
+  ).getTime();
+  const recent = done.filter((task) => task.updatedAt >= recentSince);
   const visible = allTime ? done : recent;
 
   return (

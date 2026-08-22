@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Task } from "../store";
 import { openTasks } from "../store";
@@ -10,16 +9,16 @@ import { Card } from "./Card";
  * re-sorts. Tasks with a Deadline come first; dateless ones sit in their own section
  * below, separated by whitespace only.
  *
- * Owns the list's single clock and passes it to each Card as `now`, refreshing on
- * window focus, on visibilitychange, and at each local midnight (an always-open
- * desktop window never fires focus): a Card due today must read as due today after
- * local midnight without a reload.
+ * Receives the screen's single clock and passes it to each Card. App owns that clock
+ * because the Archive needs the same day boundary too: a Card due today and the
+ * seven-day Archive window must turn over together after local midnight.
  *
  * Each section is a <ul>; Card renders the <li>.
  */
 
 type Props = {
   tasks: Task[];
+  now: Date;
   onComplete: (task: Task) => void;
   onDelete: (task: Task) => void;
   onEdit: (task: Task, text: string) => void;
@@ -33,34 +32,7 @@ const LIST: CSSProperties = {
   gap: 8,
 };
 
-export function TaskList({ tasks, onComplete, onDelete, onEdit }: Props) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const refresh = () => setNow(new Date());
-
-    // Re-arm from a fresh Date every time: a day is 23 or 25 hours across DST, and
-    // the timer must land on the next local midnight, not on +24h.
-    let midnightTimer: number;
-    const scheduleMidnight = () => {
-      const now = new Date();
-      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      midnightTimer = window.setTimeout(() => {
-        refresh();
-        scheduleMidnight();
-      }, next.getTime() - now.getTime());
-    };
-    scheduleMidnight();
-
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.clearTimeout(midnightTimer);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, []);
-
+export function TaskList({ tasks, now, onComplete, onDelete, onEdit }: Props) {
   const open = openTasks(tasks);
   if (open.length === 0) {
     return (

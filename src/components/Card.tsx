@@ -71,6 +71,7 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
   const urgency = urgencyOf(task.deadline, now);
   const late = daysOverdue(task.deadline, now);
   const ink = urgency === "dark" ? INK_ON_DARK : INK_ON_LIGHT;
+  const hasFinePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.text);
@@ -281,7 +282,7 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
 
       {/* Hover-revealed, so the resting list stays clean. Absent on touch, which has
           no hover -- there, deleting is the left swipe. */}
-      {!editing && (
+      {!editing && hasFinePointer && (
         <button
           type="button"
           aria-label="Apagar"

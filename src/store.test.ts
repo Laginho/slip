@@ -219,6 +219,33 @@ describe("mutations", () => {
     const edited = setDone(created, created[0].id, true);
     expect(edited[0].updatedAt).toBeGreaterThan(created[0].updatedAt);
   });
+
+  it("keeps boundary stamps loadable after mutation", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    const ceiling = Date.UTC(2100, 0, 1);
+
+    const atCeiling = [task({ id: "ceiling", updatedAt: ceiling })];
+    const once = setDone(atCeiling, "ceiling", true);
+    expect(once[0].updatedAt).toBe(ceiling);
+    expect(load()).toEqual(once);
+
+    const nearCeiling = [task({ id: "near", updatedAt: ceiling - 1 })];
+    const first = setDone(nearCeiling, "near", true);
+    const second = editText(first, "near", "still loadable");
+    expect(first[0].updatedAt).toBe(ceiling);
+    expect(second[0].updatedAt).toBe(ceiling);
+    expect(load()).toEqual(second);
+  });
+
+  it("bounds an implausible system clock to the persisted domain", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2200, 0, 1));
+
+    const created = create([], "future-proof", "work");
+    expect(created[0].updatedAt).toBe(Date.UTC(2100, 0, 1));
+    expect(load()).toEqual(created);
+  });
 });
 
 describe("restore (the undo primitive)", () => {

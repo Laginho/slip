@@ -53,6 +53,12 @@ const DEADLINE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
  * incrementable but dates the Task to the year 287396, pinning it to the top of the
  * Archive forever. The year 2100 leaves room for any realistic clock skew between
  * devices while rejecting both.
+ *
+ * This bound is enforced on the way *in* and on the way *out*, and that pairing is the
+ * point: every stamp this module mints is a stamp toTask() accepts, so the domain is
+ * closed under mutation. Bounding only the ingress would leave a Task at the ceiling
+ * that the next edit stamps one past it -- persisted, then silently dropped by load()
+ * on the next launch, taking the Task with it.
  */
 const MAX_STAMP = Date.UTC(2100, 0, 1);
 
@@ -143,9 +149,21 @@ export function persist(tasks: Task[]): Task[] {
  * for an undo means the delete it is undoing can survive and the Task vanishes at the
  * next sync. It also guards the likelier case of the wall clock stepping backwards
  * (NTP correction, timezone change), which would otherwise make a newer edit lose.
+ *
+ * At MAX_STAMP itself the stamp stops advancing, because no bounded counter can keep
+ * incrementing forever. Ties there fall to winner()'s content comparison in sync.ts:
+ * degraded and convergent, rather than a Task that writes fine and cannot be read back.
  */
 function nextStamp(previous: number): number {
-  return Math.max(Date.now(), previous + 1);
+  return Math.min(MAX_STAMP, Math.max(stampNow(), previous + 1));
+}
+
+/**
+ * Now, bounded to the domain toTask() accepts. A system clock set past 2100 would
+ * otherwise mint Tasks that are written successfully and then vanish on the next launch.
+ */
+function stampNow(): number {
+  return Math.max(0, Math.min(MAX_STAMP, Date.now()));
 }
 
 /** The only way a Task changes. Guarantees updatedAt is stamped -- issue 09 rests on it. */
@@ -174,7 +192,7 @@ export function create(
     deadline,
     done: false,
     deleted: false,
-    updatedAt: Date.now(),
+    updatedAt: stampNow(),
   };
   // Appended, so the dateless section reads in creation order.
   return persist([...tasks, task]);
