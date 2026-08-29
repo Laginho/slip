@@ -247,3 +247,251 @@ describe("storage refusing reads", () => {
     expect(container.textContent).toContain("nada por aqui");
   });
 });
+
+/**
+ * The notification layer (undo toast + save-error banner) is fixed to the top of the
+ * window and out of the document flow. jsdom has no layout engine, so "does not
+ * displace" is asserted structurally: both notifications must live in a fixed-position
+ * layer outside <main>, and the list's markup must be byte-identical while a
+ * notification mounts, while it is up, and after it goes away.
+ */
+describe("the notification layer", () => {
+  /** The toast root sits inside width wrappers; what matters is that some ancestor
+   *  is fixed against the window -- that is what takes it out of the document flow. */
+  function nearestFixedAncestor(el: Element): HTMLElement | null {
+    let node: HTMLElement | null = el.parentElement;
+    while (node !== null) {
+      if (getComputedStyle(node).position === "fixed") return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  it("floats the undo toast over the top; only the action, never the toast, touches the list", async () => {
+    vi.useFakeTimers();
+    try {
+      seedStorage([
+        task({ id: "a", text: "entregar relatório" }),
+        task({ id: "b", text: "comprar pão" }),
+      ]);
+      const container = await render(<App />);
+      const main = container.querySelector("main")!;
+
+      await activate(queryLabel(container, "Concluir")!);
+
+      const toast = container.querySelector('[role="status"]')!;
+      expect(toast).not.toBeNull();
+      // Out of flow entirely, so mounting it cannot move the bottom-anchored list.
+      expect(nearestFixedAncestor(toast)).not.toBeNull();
+      expect(main.contains(toast)).toBe(false);
+      const whileToastUp = main.innerHTML;
+
+      await act(async () => vi.advanceTimersByTime(5000));
+      expect(container.querySelector('[role="status"]')).toBeNull();
+      // Across the toast's whole life -- mounted, expiring, gone -- main's markup
+      // never moved: the only diff was the completed Card leaving, at action time.
+      expect(main.innerHTML).toBe(whileToastUp);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("floats the save-error banner the same way, without displacing the list", async () => {
+    throwOnSetItem();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const before = main.innerHTML;
+
+    const input = container.querySelector<HTMLInputElement>('input[placeholder="uma tarefa..."]')!;
+    await act(async () => typeInto(input, "comprar leite"));
+    await submitCapture(container);
+
+    const banner = container.querySelector('[role="alert"]')!;
+    expect(banner).not.toBeNull();
+    expect(nearestFixedAncestor(banner)).not.toBeNull();
+    expect(main.contains(banner)).toBe(false);
+    // The failed write adopted nothing: the list is byte-identical with the banner up.
+    expect(main.innerHTML).toBe(before);
+  });
+
+  it("stacks toast and banner in the one floating layer when an undo fails to persist", async () => {
+    seedStorage([task({ id: "a", text: "entregar relatório" })]);
+    const container = await render(<App />);
+
+    await activate(queryLabel(container, "Concluir")!);
+    expect(container.querySelector('[role="alert"]')).toBeNull(); // success cleared any error
+    throwOnSetItem();
+    await activate(undoButton(container)!); // refused: toast restarts, banner raises
+
+    const status = container.querySelector('[role="status"]')!;
+    const alert = container.querySelector('[role="alert"]')!;
+    expect(status).not.toBeNull();
+    expect(alert).not.toBeNull();
+    // Both live in the same fixed layer above the content, never in the flow.
+    expect(nearestFixedAncestor(status)).not.toBeNull();
+    expect(nearestFixedAncestor(alert)).not.toBeNull();
+    expect(main_of(status)).toBe(main_of(alert));
+  });
+
+  /** Both notifications must descend from the same layer element. */
+  function main_of(el: Element): Element {
+    return el.parentElement!.parentElement!;
+  }
+});
+
+/**
+ * Visual promotion 04 RED: Phone B/A Conversa vs Desktop A/A Parede.
+ * Phone (<900): list/col + Capture composer interno arredondado hairline dentro de faixa branca pinada;
+ * Desktop (≥900): grid wall + Capture flat/full-width sem bubble radius com hairline superior.
+ * Labels pt-BR: `nova tarefa` (input placeholder/aria) e `prazo` (deadline).
+ * Mocks permitidos: apenas matchMedia e relógio fixo. Não duplica gestos/keyboard.
+ */
+describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () => {
+  const FIXED_TASK = task({ id: "vis-1", text: "preparar apresentação", deadline: "2026-08-30" });
+
+  function hasHairline(style: CSSStyleDeclaration | string): boolean {
+    const s = typeof style === "string" ? style : (style.borderTop || style.border || "");
+    return (
+      s.includes("#e2e0dc") ||
+      s.includes("e2e0dc") ||
+      s.includes("226, 224, 220") ||
+      s.includes("226,224,220") ||
+      s.includes("rgb(226")
+    );
+  }
+
+  it("App mobile (matchMedia false): TaskList lista/coluna e CaptureBar compositor interno arredondado com hairline + labels pt-BR", async () => {
+    const { stubMobileMedia } = await import("./testing");
+    stubMobileMedia();
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([FIXED_TASK]));
+    const container = await render(<App />);
+
+    // TaskList: lista coluna (flex) não grid wall
+    const lists = [...container.querySelectorAll('ul[role="list"]')] as HTMLElement[];
+    expect(lists.length, "TaskList renderiza lista").toBeGreaterThan(0);
+    const firstListDisplay = lists[0] ? getComputedStyle(lists[0]).display : "";
+    // Mobile <900 must be flex column; wall is grid
+    expect(firstListDisplay).toBe("flex");
+    // Also gap 12 for conversational list (wall is grid gap 16)
+    if (lists[0]) expect(lists[0].style.gap).toBe("12px");
+
+    // CaptureBar: faixa branca pinada + compositor interno arredondado com hairline
+    const form = container.querySelector("form") as HTMLElement;
+    expect(form).not.toBeNull();
+    // Outer strip is white pinned — form background still CAPTURE_BG
+    expect(getComputedStyle(form).backgroundColor, "faixa branca").toMatch(/255, 255, 255|#fff/i);
+
+    // Inner composer: rounded + hairline inside the strip (not the form borderTop)
+    // Future mobile wraps chips+inputs in a rounded div; current flat has none -> RED
+    const innerComposer = form.querySelector("div") as HTMLElement | null;
+    // Must exist and be rounded
+    expect(innerComposer, "compositor interno arredondado").not.toBeNull();
+    if (innerComposer) {
+      const radius = getComputedStyle(innerComposer).borderRadius || innerComposer.style.borderRadius;
+      expect(radius, "radius conversacional").toMatch(/16px|999px/);
+      const border = innerComposer.style.border || getComputedStyle(innerComposer).border;
+      expect(hasHairline(innerComposer.style.border || border), "hairline no compositor").toBe(true);
+    }
+
+    // Labels pt-BR
+    const novaTarefa =
+      container.querySelector('input[placeholder="nova tarefa"]') ||
+      container.querySelector('input[aria-label="nova tarefa"]') ||
+      queryLabel(container, "nova tarefa");
+    expect(novaTarefa, 'label pt-BR "nova tarefa"').not.toBeNull();
+    const prazo =
+      container.querySelector('input[aria-label="prazo"]') ||
+      container.querySelector('input[placeholder="prazo"]');
+    expect(prazo, 'label pt-BR "prazo"').not.toBeNull();
+    // Deadline still 30/08 semantics but mobile Card shows "vence 30/08"
+    expect(container.textContent).toContain("vence 30/08");
+  });
+
+  it("App desktop (matchMedia true): TaskList grid wall e CaptureBar flat full-width sem bubble radius com hairline superior", async () => {
+    const { stubDesktopMedia } = await import("./testing");
+    stubDesktopMedia();
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([FIXED_TASK]));
+    const container = await render(<App />);
+
+    // TaskList: grid wall (≥900)
+    const lists = [...container.querySelectorAll('ul[role="list"]')] as HTMLElement[];
+    expect(lists.length).toBeGreaterThan(0);
+    const firstListDisplay = getComputedStyle(lists[0]).display;
+    expect(firstListDisplay, "wall deve ser grid").toBe("grid");
+    expect(lists[0].style.gridTemplateColumns).toMatch(/auto-fill.*minmax/);
+    expect(lists[0].style.gap).toBe("16px");
+
+    // CaptureBar flat: full-width, sem bubble radius interno, hairline superior na faixa
+    const form = container.querySelector("form") as HTMLElement;
+    expect(form).not.toBeNull();
+    // No inner rounded composer — flat strip
+    const innerRounded = [...form.querySelectorAll("div")].find((d) => {
+      const r = (d as HTMLElement).style.borderRadius || getComputedStyle(d as HTMLElement).borderRadius;
+      return r && r !== "0px" && r !== "";
+    });
+    expect(innerRounded, "desktop não deve ter bubble radius interno").toBeUndefined();
+    // Hairline superior na faixa (form borderTop)
+    const borderTop = form.style.borderTop || getComputedStyle(form).borderTop;
+    expect(hasHairline(borderTop), "hairline superior desktop").toBe(true);
+
+    // Ordem preservada — mesma Task aparece
+    expect(container.textContent).toContain("preparar apresentação");
+    expect(container.textContent).toContain("30/08");
+    // Desktop NÃO usa prefixo vence
+    expect(container.textContent).not.toContain("vence 30/08");
+  });
+});
+
+/**
+ * FIXUP 04 — overflow horizontal do compositor mobile (READ P1).
+ * Evidência: form=375px, composer=437.34px, scrollWidth=453px em 375x812 (doc bloqueado).
+ * Causa: item flex interno não pode encolher (COMPOSER flex:1 sem minWidth:0).
+ * Em jsdom não há layout real, então o assert é estrutural: o compositor deve
+ * permitir shrink (minWidth 0 / min-width 0). Desktop continua sem compositor interno.
+ */
+describe("fixup 04 — compositor mobile cabe no viewport sem overflow", () => {
+  const OVERFLOW_TASK = task({ id: "fix-1", text: "preparar apresentação", deadline: "2026-08-30" });
+
+  it("mobile (<900): compositor permite shrink (minWidth 0) para não exceder o form/viewport", async () => {
+    const { stubMobileMedia } = await import("./testing");
+    stubMobileMedia();
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([OVERFLOW_TASK]));
+    const container = await render(<App />);
+
+    const form = container.querySelector("form") as HTMLElement;
+    expect(form).not.toBeNull();
+
+    // No mobile o CaptureBar envolve os fields em <div style={COMPOSER}>
+    const composer = form.querySelector("div") as HTMLElement | null;
+    expect(composer, "compositor interno deve existir no mobile").not.toBeNull();
+    if (composer) {
+      // Propriedade de layout que permite ao flex item encolher abaixo do conteúdo intrínseco
+      // O fix mínimo é `minWidth: 0` no COMPOSER (src/components/CaptureBar.tsx:56)
+      const inlineMinWidth = composer.style.minWidth;
+      const computedMinWidth = getComputedStyle(composer).minWidth;
+      const allowsShrink = inlineMinWidth === "0" || inlineMinWidth === "0px" || computedMinWidth === "0px";
+      expect(allowsShrink, `minWidth deve ser 0 para permitir shrink (inline='${inlineMinWidth}' computed='${computedMinWidth}')`).toBe(true);
+    }
+  });
+
+  it("desktop (>=900): continua sem compositor interno (faixa flat)", async () => {
+    const { stubDesktopMedia } = await import("./testing");
+    stubDesktopMedia();
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([OVERFLOW_TASK]));
+    const container = await render(<App />);
+
+    const form = container.querySelector("form") as HTMLElement;
+    expect(form).not.toBeNull();
+    // Desktop é flat full-width, sem bubble interno arredondado
+    const hasInnerComposer = form.querySelector("div") !== null;
+    const innerRounded = [...form.querySelectorAll("div")].some((d) => {
+      const r = (d as HTMLElement).style.borderRadius || getComputedStyle(d as HTMLElement).borderRadius;
+      return r && r !== "0px" && r !== "";
+    });
+    expect(hasInnerComposer && innerRounded, "desktop não deve ter compositor interno arredondado").toBe(false);
+  });
+});

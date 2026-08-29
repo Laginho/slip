@@ -41,6 +41,21 @@ export function App() {
   const token = useRef(0);
 
   /**
+   * The one layout breakpoint. Inline styles cannot express a media query, so the
+   * screen asks once and reacts to changes live -- a desktop window being resized,
+   * a phone rotated. Like `now` below, it is owned here and handed down: TaskList
+   * stays presentational, choosing between the phone column and the post-it wall.
+   */
+  const [wide, setWide] = useState(() => window.matchMedia("(min-width: 900px)").matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 900px)");
+    const onChange = (event: MediaQueryListEvent) => setWide(event.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  /**
    * One clock for the whole screen, refreshed on focus, on visibilitychange, and at each
    * local midnight -- an always-open desktop window never fires focus. Both the Cards'
    * Urgency and the Archive's window read it, so they can never disagree about what day
@@ -242,7 +257,9 @@ export function App() {
         flexDirection: "column",
         background: SURFACE,
         color: TEXT_PRIMARY,
-        maxWidth: 620,
+        // The phone column cap. On a wide viewport the wall wants the monitor's
+        // width -- the grid inside decides how many columns that buys.
+        maxWidth: wide ? "none" : 620,
         margin: "0 auto",
       }}
     >
@@ -252,16 +269,17 @@ export function App() {
           minHeight: 0,
           overflowY: "auto",
           overflowX: "hidden",
-          padding: "12px 12px 4px",
+          padding: "16px 16px 6px",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-end",
-          gap: 8,
+          justifyContent: "flex-start",
+          gap: 12,
         }}
       >
         <TaskList
           tasks={tasks}
           now={now}
+          wide={wide}
           onComplete={complete}
           onDelete={discard}
           onEdit={edit}
@@ -269,36 +287,70 @@ export function App() {
         <Archive tasks={tasks} now={now} />
       </main>
 
-      {pending !== null && (
-        <UndoToast
-          key={pending.token}
-          label={pending.label}
-          onUndo={undo}
-          onExpire={() => setPending(null)}
-        />
-      )}
-
-      {saveError && (
-        <div
-          role="alert"
-          style={{
-            margin: "0 12px 8px",
-            padding: "8px 14px",
-            borderRadius: 10,
-            background: TOAST_BG,
-            color: TOAST_INK,
-            fontSize: 13,
-          }}
-        >
-          não foi possível salvar suas alterações
-        </div>
-      )}
-
       <CaptureBar
+        wide={wide}
         onCapture={(text, kind, deadline) =>
           mutate((list) => create(list, text, kind, deadline))
         }
       />
+
+      {/*
+        One fixed layer for every notification -- undo toast and save-error banner.
+        Pinned to the top edge of the window, horizontally centred on the column,
+        respecting the top safe-area inset. Out of the document flow entirely:
+        appearing, expiring and being replaced never lay out anything below, so the
+        list stays pixel-stable while the user acts on it. The layer
+        itself is pointer-events:none (an absent toast must not block what it floats
+        over); each visible child re-enables its own clicks.
+      */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "max(12px, env(safe-area-inset-top)) 12px 0",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 596, // 620 shell minus the 12px side paddings, as before.
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          {pending !== null && (
+            <UndoToast
+              key={pending.token}
+              label={pending.label}
+              onUndo={undo}
+              onExpire={() => setPending(null)}
+            />
+          )}
+
+          {saveError && (
+            <div
+              role="alert"
+              style={{
+                padding: "8px 14px",
+                borderRadius: 10,
+                background: TOAST_BG,
+                color: TOAST_INK,
+                fontSize: 13,
+                pointerEvents: "auto",
+              }}
+            >
+              não foi possível salvar suas alterações
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

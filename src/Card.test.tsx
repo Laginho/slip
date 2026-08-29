@@ -24,17 +24,21 @@ import {
 
 const NOW = new Date(2026, 7, 22);
 
-async function renderCard(handlers?: {
-  onComplete?: (task: Task) => boolean;
-  onDelete?: (task: Task) => boolean;
-  onEdit?: (task: Task, text: string) => boolean;
-}) {
+async function renderCard(
+  handlers?: {
+    onComplete?: (task: Task) => boolean;
+    onDelete?: (task: Task) => boolean;
+    onEdit?: (task: Task, text: string) => boolean;
+  },
+  wide = false,
+) {
   const card = task({ id: "a", text: "entregar relatório" });
   const container = await render(
     <ul>
       <Card
         task={card}
         now={NOW}
+        wide={wide}
         onComplete={handlers?.onComplete ?? (() => true)}
         onDelete={handlers?.onDelete ?? (() => true)}
         onEdit={handlers?.onEdit ?? (() => true)}
@@ -268,5 +272,66 @@ describe("a swipe flight whose write fails", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * Visual promotion 04: Phone B/A Conversa (bubble) vs Desktop A/A Parede (wall).
+ * Production Card now takes the required `wide: boolean`: false renders the bubble
+ * (left-aligned 86%, radius 6/16/16/16, "vence 30/08" em meta separada), true
+ * renders the wall card (radius 10, sem cap 86%, "30/08" sem prefixo "vence").
+ */
+describe("visual — promoção B/A Conversa (mobile) vs A/A Parede (desktop)", () => {
+  const FIXED_NOW = new Date(2026, 7, 27, 12, 0, 0); // 27/08/2026 local
+
+  function cardTask(): Task {
+    return task({ id: "vis-1", text: "preparar apresentação", deadline: "2026-08-30" });
+  }
+
+  async function renderVisual(wide: boolean): Promise<HTMLElement> {
+    const t = cardTask();
+    const container = await render(
+      <ul>
+        <Card
+          task={t}
+          now={FIXED_NOW}
+          wide={wide}
+          onComplete={() => true}
+          onDelete={() => true}
+          onEdit={() => true}
+        />
+      </ul>,
+    );
+    return container;
+  }
+
+  it("Card mobile (wide=false) é bubble à esquerda: maxWidth 86% radius 6px 16px 16px 16px e prazo vence 30/08 em meta separada", async () => {
+    const container = await renderVisual(false);
+    const li = container.querySelector("li") as HTMLElement;
+    expect(li).not.toBeNull();
+    // Bubble constraints —Conversational composition phone <900
+    expect(li.style.maxWidth).toBe("86%");
+    expect(li.style.borderRadius).toBe("6px 16px 16px 16px");
+    // Deadline meta: exactly "vence 30/08" (not plain 30/08), em linha separada
+    expect(li.textContent).toContain("vence 30/08");
+    // Ensure the plain "30/08" alone is wrapped as vence — at least one node holds the prefix
+    const hasVenceNode = [...li.querySelectorAll("span")].some((s) =>
+      s.textContent?.includes("vence 30/08"),
+    );
+    expect(hasVenceNode, "prazo em meta separada com prefixo vence").toBe(true);
+  });
+
+  it("Card desktop (wide=true) é parede: radius 10 sem cap 86% e prazo 30/08 sem prefixo vence", async () => {
+    const container = await renderVisual(true);
+    const li = container.querySelector("li") as HTMLElement;
+    expect(li).not.toBeNull();
+    // Wall card fills cell — no 86% cap
+    expect(li.style.maxWidth).not.toBe("86%");
+    // Explicit check: maxWidth either empty or 100%/none, never bubble cap
+    expect(["", "100%", "none"]).toContain(li.style.maxWidth);
+    expect(li.style.borderRadius).toBe("10px");
+    // Desktop keeps compact deadline "30/08" without "vence"
+    expect(li.textContent).toContain("30/08");
+    expect(li.textContent).not.toContain("vence 30/08");
   });
 });

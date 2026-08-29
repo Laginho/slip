@@ -14,9 +14,9 @@ import { TOAST_BG, TOAST_INK } from "../palette";
  * same wording remounts it and restarts the five seconds instead of inheriting the
  * remainder of the previous window.
  *
- * Renders in normal flow, directly above the capture bar. Deliberately not
- * position: fixed -- that would need a magic offset matching the bar's height plus the
- * safe-area inset, and would drift the moment either changed.
+ * Positioned entirely by the parent's fixed layer at the top of the window: this
+ * component only fills that layer's column width. Being out of the document flow is
+ * the point -- appearing and expiring must never lay out the list below.
  */
 
 type Props = {
@@ -53,12 +53,15 @@ export function UndoToast({ label, onUndo, onExpire }: Props) {
         alignItems: "center",
         justifyContent: "space-between",
         gap: 12,
-        margin: "0 12px 8px",
+        width: "100%",
         padding: "10px 14px",
         borderRadius: 10,
         background: TOAST_BG,
         color: TOAST_INK,
         fontSize: 14,
+        // The parent layer is pointer-events:none so an absent toast never blocks the
+        // content beneath; the toast itself must still be clickable while it exists.
+        pointerEvents: "auto",
       }}
     >
       <span>{label}</span>

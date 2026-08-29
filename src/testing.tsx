@@ -41,6 +41,39 @@ export function stubNoMatchMedia(): void {
   }));
 }
 
+/** Mobile (<900px): min-width:900 is false; desktop (≥900px): true. Keeps hover:false. */
+export function stubMobileMedia(): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
+
+export function stubDesktopMedia(): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(min-width: 900px)",
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
+
+/** Generic stub for the responsive breakpoint; allows future extensibility. */
+export function stubMatchMediaWide(wide: boolean): void {
+  if (wide) stubDesktopMedia();
+  else stubMobileMedia();
+}
+
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
 

@@ -75,13 +75,22 @@ type Phase =
 type Props = {
   task: Task;
   now: Date;
+  /**
+   * The screen's breakpoint, owned by App. `false` is the phone (<900px): the cartoon
+   * bubble -- left-aligned, capped at 86%, radius 6px/16px/16px/16px, Deadline printed
+   * as its own "vence dd/mm" meta line. `true` is the desktop wall (>=900px): square
+   * radius 10, uncapped, compact inline "dd/mm". Only the look differs; gestures,
+   * buttons, editing, swipe and keyboard are identical in both.
+   */
+  wide: boolean;
   /** Returns whether the action persisted; false means storage refused the write. */
   onComplete: (task: Task) => boolean;
   onDelete: (task: Task) => boolean;
   onEdit: (task: Task, text: string) => boolean;
 };
 
-export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
+export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
+  const bubble = !wide;
   const urgency = urgencyOf(task.deadline, now);
   const late = daysOverdue(task.deadline, now);
   const ink = urgency === "dark" ? INK_ON_DARK : INK_ON_LIGHT;
@@ -276,7 +285,7 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
     // own Enter/Space activation and any pointer use after reveal keep working.
     pointerEvents: revealActions ? "auto" : "none",
     padding: "0 2px",
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 1,
     // The browser's default focus outline stays; hiding it would undo the reveal.
     cursor: revealActions ? "pointer" : "default",
@@ -286,6 +295,50 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
   const swallowPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.stopPropagation();
   };
+
+  // The three native buttons, reused as-is: direct children of the row on the wall,
+  // wrapped in their own trailing row inside the bubble's column.
+  const actions = (
+    <>
+      <button
+        type="button"
+        aria-label="Concluir"
+        onPointerDown={swallowPointerDown}
+        onClick={(event) => {
+          event.stopPropagation();
+          onComplete(task);
+        }}
+        style={actionStyle}
+      >
+        ✓
+      </button>
+      <button
+        ref={editarButton}
+        type="button"
+        aria-label="Editar"
+        onPointerDown={swallowPointerDown}
+        onClick={(event) => {
+          event.stopPropagation();
+          beginEdit();
+        }}
+        style={actionStyle}
+      >
+        ✎
+      </button>
+      <button
+        type="button"
+        aria-label="Apagar"
+        onPointerDown={swallowPointerDown}
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete(task);
+        }}
+        style={actionStyle}
+      >
+        ×
+      </button>
+    </>
+  );
 
   return (
     <li
@@ -302,11 +355,13 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
         listStyle: "none",
         background: CARD[task.kind][urgency],
         color: ink,
-        borderRadius: 10,
-        padding: "11px 13px",
+        maxWidth: bubble ? "86%" : undefined,
+        borderRadius: bubble ? "6px 16px 16px 16px" : 10,
+        padding: bubble ? "10px 14px" : "16px 18px",
         display: "flex",
-        alignItems: "baseline",
-        gap: 10,
+        flexDirection: bubble ? "column" : "row",
+        alignItems: bubble ? "flex-start" : "baseline",
+        gap: bubble ? 4 : 10,
         transform,
         transition,
         // Let the list scroll vertically while horizontal drags stay ours.
@@ -315,7 +370,7 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
         userSelect: editing ? "auto" : "none",
       }}
     >
-      <span style={{ flex: 1, minWidth: 0, fontSize: 16, lineHeight: 1.3 }}>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 18, lineHeight: 1.5 }}>
         {editing ? (
           <input
             ref={editInput}
@@ -365,59 +420,19 @@ export function Card({ task, now, onComplete, onDelete, onEdit }: Props) {
         <span
           style={{
             flex: "none",
-            fontSize: 13,
+            fontSize: bubble ? 13 : 14,
             opacity: 0.75,
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {formatDeadline(task.deadline)}
+          {bubble ? `vence ${formatDeadline(task.deadline)}` : formatDeadline(task.deadline)}
         </span>
       )}
 
       {/* Native controls for all three actions, always rendered -- keyboard and
           touch-keyboard users cannot be gated behind a fine-pointer media query.
           Hover or focus-within reveals them; gestures remain the shortcuts. */}
-      {!editing && (
-        <>
-          <button
-            type="button"
-            aria-label="Concluir"
-            onPointerDown={swallowPointerDown}
-            onClick={(event) => {
-              event.stopPropagation();
-              onComplete(task);
-            }}
-            style={actionStyle}
-          >
-            ✓
-          </button>
-          <button
-            ref={editarButton}
-            type="button"
-            aria-label="Editar"
-            onPointerDown={swallowPointerDown}
-            onClick={(event) => {
-              event.stopPropagation();
-              beginEdit();
-            }}
-            style={actionStyle}
-          >
-            ✎
-          </button>
-          <button
-            type="button"
-            aria-label="Apagar"
-            onPointerDown={swallowPointerDown}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete(task);
-            }}
-            style={actionStyle}
-          >
-            ×
-          </button>
-        </>
-      )}
+      {!editing && (bubble ? <div style={{ display: "flex", gap: 4, alignSelf: "flex-end" }}>{actions}</div> : actions)}
     </li>
   );
 }
