@@ -414,12 +414,12 @@ exit 0`;
     // não cancela deploy em andamento
     expect(yml).not.toMatch(/cancel-in-progress:\s*true/);
     // secrets contidos ao gate/build, não disponíveis para npm ci/testes (job env seria amplo)
-    // o workflow atual coloca secrets no job env (build.env) — deve mover para step Build/Gate
-    const hasJobLevelSecrets = /jobs:\s*\n[\s\S]*?build:\s*\n[\s\S]*?env:\s*\n[\s\S]*?VITE_SUPABASE_URL/.test(yml);
-    expect(hasJobLevelSecrets, "secrets não devem estar no job env (devem ficar contidos ao step)").toBe(false);
-    // deve haver env no step de Build/Require secrets
-    expect(yml).toMatch(/VITE_SUPABASE_URL:\s*\$\{\{\s*secrets\.VITE_SUPABASE_URL/);
-    expect(yml).toMatch(/VITE_SUPABASE_ANON_KEY:\s*\$\{\{\s*secrets\.VITE_SUPABASE_ANON_KEY/);
+    // env de job fica indentado a 4 espaços sob o job; env de step, a 8. Só o de step é permitido.
+    const hasJobLevelEnv = /\n {4}env:/.test(yml);
+    expect(hasJobLevelEnv, "secrets não devem estar no job env (devem ficar contidos ao step)").toBe(false);
+    // deve haver env block-style nos steps de Require secrets/Build
+    expect(yml).toMatch(/\n {8}env:\s*\n {10}VITE_SUPABASE_URL:\s*\$\{\{\s*secrets\.VITE_SUPABASE_URL/);
+    expect(yml).toMatch(/\n {10}VITE_SUPABASE_ANON_KEY:\s*\$\{\{\s*secrets\.VITE_SUPABASE_ANON_KEY/);
   });
 
   it("schema contém check equivalente a length(btrim(id)) > 0", () => {
