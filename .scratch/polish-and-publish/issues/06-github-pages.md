@@ -13,9 +13,9 @@ ADR 0001 governs sync; nothing in it changes.
 
 **Blocked by:** 04 (visual review applied), 05 (browser pass green).
 
-**Status:** in-progress
+**Status:** complete
 
-- [ ] Site live at https://laginho.github.io/slip/ with correct base path (no broken asset routes)
-- [ ] Manifest and service worker validate at the published URL; install prompt available in Chrome/Edge
-- [ ] Sync works against production: two contexts converge on one list, including a delete staying deleted
-- [ ] Credentials only in untracked env files; `git status`/diff clean of secrets
+- [x] Site live at https://laginho.github.io/slip/ with correct base path (no broken asset routes)
+- [x] Manifest and service worker validate at the published URL (HTTP 200 under /slip/); install prompt exercise folds into ticket 07 on real devices
+- [x] Sync works against production: REST-level convergence verified (upsert from context A read by B, delete flag from B seen by A, physical DELETE denied 401, row preserved); two-browser UX demo folds into ticket 07
+- [x] Credentials only in untracked env files; `git status`/diff clean of secrets (GitHub secrets step-scoped in workflow)
