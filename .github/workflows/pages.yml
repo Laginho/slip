@@ -31,9 +31,11 @@ jobs:
       - name: Install
         run: npm ci
       - name: Require Supabase secrets
-        # Secrets reach only the steps that need them. Flow-style keeps the map off
-        # the job env, so npm ci/tests/typecheck never even see the env object.
-        env: {VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}, VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}}
+        # Secrets reach only the steps that need them (step-level env, never job
+        # env), so npm ci/tests/typecheck never see them.
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "::error::VITE_SUPABASE_URL secret is not set; configure it under repo Settings > Secrets before deploying"; exit 1; }
           test -n "$VITE_SUPABASE_ANON_KEY" || { echo "::error::VITE_SUPABASE_ANON_KEY secret is not set; configure it under repo Settings > Secrets before deploying"; exit 1; }
@@ -42,7 +44,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Build
-        env: {VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}, VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}}
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
