@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Kind } from "../store";
 import { KINDS } from "../store";
 import { CARD, CAPTURE_BG, HAIRLINE, INK_ON_LIGHT, TEXT_QUIET } from "../palette";
+import { inferDeadline } from "../urgency";
 
 /**
  * Capture: the WhatsApp bar. Type, Enter, done -- anything that adds a step to that
  * path is wrong. Owns the sticky selected Kind (persisted under its own key: it is
- * not a Task, so it does not go through the store) and an optional native date input.
+ * not a Task, so it does not go through the store) and an optional day-of-month field
+ * whose full date is inferred at capture time.
  *
  * Shortcuts are Alt+1/2/3, not the bare digits the ticket first asked for: the input
  * must be focused on launch and stay focused, and a bare "1" would be swallowed as a
@@ -35,6 +37,13 @@ function storedKind(): Kind {
 
 type Props = {
   /**
+   * The screen's breakpoint, owned by App. `false` is the phone (<900px): the bar's
+   * contents sit inside a white rounded composer with a hairline, itself in the white
+   * pinned strip. `true` is the desktop wall (>=900px): the flat full-width strip,
+   * chips and inputs directly on it. Same shortcuts, keying and error handling.
+   */
+  wide: boolean;
+  /**
    * Returns whether the Task was persisted. A false return -- storage refused the
    * write -- must leave everything the user typed in place for a retry; the caller
    * (App) owns the error message.
@@ -42,9 +51,23 @@ type Props = {
   onCapture: (text: string, kind: Kind, deadline: string | null) => boolean;
 };
 
-export function CaptureBar({ onCapture }: Props) {
+// The conversation composer for the phone: a white rounded bubble with a hairline,
+// sitting on the white pinned strip below it.
+const COMPOSER: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "6px 12px",
+  borderRadius: 16,
+  border: `1px solid ${HAIRLINE}`,
+  background: CAPTURE_BG,
+};
+
+export function CaptureBar({ wide, onCapture }: Props) {
   const [text, setText] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [dayStr, setDayStr] = useState("");
   const [kind, setKind] = useState<Kind>(storedKind);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,11 +90,13 @@ export function CaptureBar({ onCapture }: Props) {
 
   const capture = () => {
     if (text.trim() === "") return;
+    const deadline =
+      dayStr === "" ? null : inferDeadline(Number(dayStr), new Date());
     // Clearing the fields *is* the success signal: when storage refused the write the
     // input keeps text, kind and deadline exactly as typed, so a retry costs nothing.
-    if (!onCapture(text.trim(), kind, deadline === "" ? null : deadline)) return;
+    if (!onCapture(text.trim(), kind, deadline)) return;
     setText("");
-    setDeadline("");
+    setDayStr("");
     inputRef.current?.focus();
   };
 
@@ -86,24 +111,10 @@ export function CaptureBar({ onCapture }: Props) {
     if (event.altKey && digit !== -1) selectKind(KINDS[digit]);
   };
 
-  return (
-    <form
-      onKeyDown={onKeyDown}
-      onSubmit={(event) => {
-        event.preventDefault();
-        capture();
-      }}
-      style={{
-        flex: "none",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "8px 12px",
-        paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-        background: CAPTURE_BG,
-        borderTop: `1px solid ${HAIRLINE}`,
-      }}
-    >
+  // The three capture fields, reused as-is on the flat desktop strip and, on the
+  // phone, wrapped in the rounded composer.
+  const fields = (
+    <>
       {KINDS.map((k) => {
         const selected = k === kind;
         return (
@@ -117,8 +128,8 @@ export function CaptureBar({ onCapture }: Props) {
               fontFamily: "inherit",
               border: `1px solid ${HAIRLINE}`,
               borderRadius: 999,
-              padding: "5px 10px",
-              fontSize: 13,
+              padding: "8px 14px",
+              fontSize: 14,
               background: selected ? CARD[k].light : "transparent",
               color: selected ? INK_ON_LIGHT : TEXT_QUIET,
             }}
@@ -133,33 +144,63 @@ export function CaptureBar({ onCapture }: Props) {
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder="uma tarefa..."
+        aria-label="nova tarefa"
         enterKeyHint="send"
         style={{
           flex: 1,
           minWidth: 0,
-          fontSize: 16, // iOS zooms focused inputs below 16px, which breaks the bar layout.
+          fontSize: 18,
           border: "none",
           outline: "none",
           background: "transparent",
-          padding: "8px 0",
+          padding: "10px 0",
         }}
       />
 
       <input
-        type="date"
-        value={deadline}
-        onChange={(event) => setDeadline(event.target.value)}
-        aria-label="Deadline"
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={dayStr}
+        onChange={(event) => {
+          const raw = event.target.value;
+          if (/^\d{0,2}$/.test(raw)) setDayStr(raw);
+        }}
+        aria-label="prazo"
         style={{
           flex: "none",
-          fontSize: 13,
+          width: 40,
+          fontSize: 14,
           border: "none",
           outline: "none",
           background: "transparent",
-          color: deadline === "" ? TEXT_QUIET : INK_ON_LIGHT,
+          color: dayStr === "" ? TEXT_QUIET : INK_ON_LIGHT,
           padding: "4px 0",
+          textAlign: "center",
         }}
       />
+    </>
+  );
+
+  return (
+    <form
+      onKeyDown={onKeyDown}
+      onSubmit={(event) => {
+        event.preventDefault();
+        capture();
+      }}
+      style={{
+        flex: "none",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "14px 16px",
+        paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+        background: CAPTURE_BG,
+        borderTop: `1px solid ${HAIRLINE}`,
+      }}
+    >
+      {wide ? fields : <div style={COMPOSER}>{fields}</div>}
     </form>
   );
 }

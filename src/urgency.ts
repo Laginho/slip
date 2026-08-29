@@ -50,3 +50,32 @@ export function formatDeadline(deadline: string): string {
   const [, month, day] = deadline.split("-");
   return `${day}/${month}`;
 }
+
+/**
+ * Infer a full YYYY-MM-DD Deadline from a day-of-month number (1–31).
+ *
+ * Finds the next occurrence of day N: if N ≥ today's day-of-month and the current
+ * month contains N → current month. Otherwise advance month by month until a month
+ * containing N is found (handles 29/30/31 in short months). Days outside 1–31
+ * return null.
+ */
+export function inferDeadline(dayNum: number, now: Date): string | null {
+  if (!Number.isInteger(dayNum) || dayNum < 1 || dayNum > 31) return null;
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const currentDay = now.getDate();
+  for (let offset = 0; offset <= 12; offset++) {
+    const lastDay = new Date(year, month + offset + 1, 0).getDate();
+    if (dayNum > lastDay) continue;
+    if (offset === 0 && dayNum < currentDay) continue;
+    return formatYmd(year, month + offset, dayNum);
+  }
+  return null;
+}
+
+function formatYmd(year: number, month: number, day: number): string {
+  const d = new Date(year, month, day);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}

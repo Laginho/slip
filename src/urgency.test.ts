@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysOverdue, formatDeadline, urgencyOf } from "./urgency";
+import { daysOverdue, formatDeadline, inferDeadline, urgencyOf } from "./urgency";
 
 // A fixed local "now": Saturday 22 August 2026, mid-afternoon.
 const NOW = new Date(2026, 7, 22, 14, 30);
@@ -73,5 +73,66 @@ describe("formatDeadline", () => {
   it("is compact day/month", () => {
     expect(formatDeadline("2026-08-23")).toBe("23/08");
     expect(formatDeadline("2026-01-05")).toBe("05/01");
+  });
+});
+
+describe("inferDeadline", () => {
+  // Fixed "now": Saturday 22 August 2026 (NOW defined above).
+  const now = NOW;
+
+  it("day later this month → same month", () => {
+    expect(inferDeadline(27, now)).toBe("2026-08-27");
+  });
+
+  it("day equal to today → today", () => {
+    expect(inferDeadline(22, now)).toBe("2026-08-22");
+  });
+
+  it("day already passed this month → next month", () => {
+    expect(inferDeadline(15, now)).toBe("2026-09-15");
+  });
+
+  it("31 in a month with 31 days → same month", () => {
+    const aug31 = new Date(2026, 7, 22);
+    expect(inferDeadline(31, aug31)).toBe("2026-08-31");
+  });
+
+  it("31 in a 30-day month → advances past short months", () => {
+    // August 2026 has 31 days, so 31 → Aug 31 (same month, day >= 22)
+    // But from Jul 22: day 31 > 22 → Jul 31
+    const jul22 = new Date(2026, 6, 22);
+    expect(inferDeadline(31, jul22)).toBe("2026-07-31");
+
+    // From Sep 22 (30 days): 31 passed → Oct (also 31 days)
+    const sep22 = new Date(2026, 8, 22);
+    expect(inferDeadline(31, sep22)).toBe("2026-10-31");
+  });
+
+  it("29 in February (non-leap) → advances to next month", () => {
+    const feb22 = new Date(2027, 1, 22);
+    // Feb 2027 has 28 days, 29 > 28 → advance to March (31 days) → Mar 29
+    expect(inferDeadline(29, feb22)).toBe("2027-03-29");
+  });
+
+  it("30 in February (non-leap) → advances past short months", () => {
+    const feb22 = new Date(2027, 1, 22);
+    // Feb 2027 has 28 days, 30 > 28 → advance to March → Mar 30
+    expect(inferDeadline(30, feb22)).toBe("2027-03-30");
+  });
+
+  it("day 0 → null", () => {
+    expect(inferDeadline(0, now)).toBeNull();
+  });
+
+  it("day 32 → null", () => {
+    expect(inferDeadline(32, now)).toBeNull();
+  });
+
+  it("non-integer → null", () => {
+    expect(inferDeadline(15.5, now)).toBeNull();
+  });
+
+  it("NaN → null", () => {
+    expect(inferDeadline(NaN, now)).toBeNull();
   });
 });

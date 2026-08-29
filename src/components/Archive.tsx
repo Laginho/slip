@@ -28,7 +28,7 @@ const LIST: CSSProperties = {
   padding: 0,
   display: "flex",
   flexDirection: "column",
-  gap: 6,
+  gap: 8,
 };
 
 const LINK: CSSProperties = {
@@ -82,7 +82,7 @@ export function Archive({ tasks, now }: Props) {
       {visible.length > 0 ? (
         <ul role="list" style={LIST}>
           {visible.map((task) => (
-            <li key={task.id} style={{ listStyle: "none", fontSize: 14 }}>
+            <li key={task.id} style={{ listStyle: "none", fontSize: 16 }}>
               <span style={{ color: TEXT_QUIET, textDecoration: "line-through" }}>
                 {task.text}
               </span>
