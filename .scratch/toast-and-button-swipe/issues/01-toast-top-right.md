@@ -47,3 +47,32 @@ assertion, that is a spec violation — stop and report instead of adapting the 
 - [ ] T1–T4 written first and red against current `main`-equivalent code
 - [ ] Implementation makes them green without editing any pre-existing test
 - [ ] `npm test` whole suite green, `npx tsc -b` clean
+
+## Comments
+
+### PTMR cycle 01 — blocked
+
+TEST introduced T1–T4 and correctly demonstrated the red presentation changes.
+MAKE implemented the planned production diff, making `src/App.test.tsx` pass 20/20.
+The full `npx tsc -b` gate remains blocked by TEST's T4: the alert query infers
+`Element`, then accesses `.style` (`TS2339`). MAKE's second attempt confirmed that
+no production-only correction can honestly fix a test type error. The master dev must
+issue a correction handoff through PLAN; READ did not run.
+
+### Master dev triage of cycle 01
+
+Validated on the branch. Two defects, one of them not in the return report:
+
+1. **TEST**: T4's `container.querySelector('[role="alert"]')!` lacks `<HTMLElement>`,
+   so `.style` fails `tsc -b` (TS2339). Confirmed in `ad72dc3`. One-line fix.
+2. **PLAN**: the cycle ran on `traycer/mighty-dolphin`, whose base (`8e8562b`) predates
+   the useSession extraction (`47d9111`) and the spec commit (`5eebe2f`), and which
+   carries the foreign red commit `0e8a5ad` (session-seam tests without their hook).
+   Every "unrelated" failure MAKE reported is this stale base: on the declared base
+   branch the suite is 136/136 and `tsc -b` is clean (verified). The return handoff
+   misattributed this to "a separate missing-useSession ticket".
+
+MAKE's production diff matches the plan and is approved in content, but was written
+against the pre-useSession `App.tsx` and must be re-landed on the correct base.
+Verdict recorded in `ledger.md` (cycle 01, correction). Correction handoff:
+`handoffs/03-to-plan.md`.
