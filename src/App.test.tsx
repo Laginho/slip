@@ -361,8 +361,7 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
   }
 
   it("App mobile (matchMedia false): TaskList lista/coluna e CaptureBar compositor interno arredondado com hairline + labels pt-BR", async () => {
-    const { stubMobileMedia } = await import("./testing");
-    stubMobileMedia();
+    stubNoMatchMedia();
     localStorage.clear();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([FIXED_TASK]));
     const container = await render(<App />);
@@ -455,8 +454,7 @@ describe("fixup 04 — compositor mobile cabe no viewport sem overflow", () => {
   const OVERFLOW_TASK = task({ id: "fix-1", text: "preparar apresentação", deadline: "2026-08-30" });
 
   it("mobile (<900): compositor permite shrink (minWidth 0) para não exceder o form/viewport", async () => {
-    const { stubMobileMedia } = await import("./testing");
-    stubMobileMedia();
+    stubNoMatchMedia();
     localStorage.clear();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([OVERFLOW_TASK]));
     const container = await render(<App />);
