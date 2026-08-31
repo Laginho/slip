@@ -20,7 +20,7 @@ const SYNC_DEBOUNCE_MS = 1500;
  * restore() needs. `token` exists only to key the toast, so that two identical actions
  * in a row restart the five seconds instead of sharing one window.
  */
-export type Pending = {
+type Pending = {
   snapshot: Task;
   label: string;
   token: number;

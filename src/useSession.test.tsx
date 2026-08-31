@@ -12,8 +12,6 @@ vi.mock("./sync", async (importOriginal) => {
 });
 
 import { sync } from "./sync";
-// The hook does not exist yet — this module import fails to resolve, which is the
-// correct red for this suite.
 import { useSession } from "./useSession";
 
 function throwOnSetItem(): ReturnType<typeof vi.spyOn> {
