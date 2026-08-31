@@ -106,7 +106,7 @@ export function App() {
 
       {/*
         One fixed layer for every notification -- undo toast and save-error banner.
-        Pinned to the top edge of the window, horizontally centred on the column,
+        Pinned to the top edge of the window, right-aligned in the top-right corner,
         respecting the top safe-area inset. Out of the document flow entirely:
         appearing, expiring and being replaced never lay out anything below, so the
         list stays pixel-stable while the user acts on it. The layer
@@ -121,45 +121,37 @@ export function App() {
           right: 0,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          alignItems: "flex-end",
+          gap: 8,
           padding: "max(12px, env(safe-area-inset-top)) 12px 0",
           pointerEvents: "none",
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            maxWidth: 596, // 620 shell minus the 12px side paddings, as before.
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          {pending !== null && (
-            <UndoToast
-              key={pending.token}
-              label={pending.label}
-              onUndo={undo}
-              onExpire={expire}
-            />
-          )}
+        {pending !== null && (
+          <UndoToast
+            key={pending.token}
+            label={pending.label}
+            onUndo={undo}
+            onExpire={expire}
+          />
+        )}
 
-          {saveError && (
-            <div
-              role="alert"
-              style={{
-                padding: "8px 14px",
-                borderRadius: 10,
-                background: TOAST_BG,
-                color: TOAST_INK,
-                fontSize: 13,
-                pointerEvents: "auto",
-              }}
-            >
-              não foi possível salvar suas alterações
-            </div>
-          )}
-        </div>
+        {saveError && (
+          <div
+            role="alert"
+            style={{
+              padding: "8px 14px",
+              borderRadius: 10,
+              background: TOAST_BG,
+              color: TOAST_INK,
+              fontSize: 13,
+              maxWidth: "min(360px, calc(100vw - 24px))",
+              pointerEvents: "auto",
+            }}
+          >
+            não foi possível salvar suas alterações
+          </div>
+        )}
       </div>
     </div>
   );
