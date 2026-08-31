@@ -1,6 +1,6 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, task, unmount } from "./testing";
+import { render, unmount } from "./testing";
 import type { Task } from "./store";
 
 vi.mock("./sync", async (importOriginal) => {
@@ -11,18 +11,10 @@ vi.mock("./sync", async (importOriginal) => {
   };
 });
 
-import { merge } from "./sync";
 import { sync } from "./sync";
-
-function spySync(result: Task[] | null = null): ReturnType<typeof vi.fn> {
-  const fn = vi.mocked(sync);
-  if (result === null) {
-    fn.mockImplementation(async (local: Task[]) => local);
-  } else {
-    fn.mockImplementation(async () => result);
-  }
-  return fn;
-}
+// The hook does not exist yet — this module import fails to resolve, which is the
+// correct red for this suite.
+import { useSession } from "./useSession";
 
 function throwOnSetItem(): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
@@ -36,11 +28,9 @@ function freshSyncMock(): ReturnType<typeof vi.fn> {
 
 // Probe component: calls useSession() and publishes latest return into a captured ref.
 // This avoids @testing-library/react while still testing through React's render cycle.
-let latestResult: ReturnType<typeof import("./useSession").useSession> | null = null;
+let latestResult: ReturnType<typeof useSession> | null = null;
 
 function Probe() {
-  // The hook does not exist yet — this import will fail, which is the correct red.
-  const { useSession } = require("./useSession") as typeof import("./useSession");
   latestResult = useSession();
   return null;
 }
@@ -59,37 +49,19 @@ afterEach(async () => {
 
 describe("Settle rebases an in-flight sync", () => {
   it("merges a mid-flight capture against a stale sync result, persists once", async () => {
-    // Stub sync to return a controllable promise.
+    // Stub sync to return a controllable promise. The hook syncs immediately on
+    // mount, so rendering puts that promise in flight and assigns the resolver.
     let resolveSync!: (tasks: Task[]) => void;
-    const syncPromise = new Promise<Task[]>((r) => {
-      resolveSync = r;
-    });
-    freshSyncMock().mockImplementation(() => syncPromise);
+    freshSyncMock().mockImplementation(
+      () =>
+        new Promise<Task[]>((r) => {
+          resolveSync = r;
+        }),
+    );
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
-    // Resolve sync with a stale result (no capture).
-    await act(async () => {
-      resolveSync([]);
-    });
-
-    // The hook must have adopted the merged list — but we triggered no capture yet.
-    // Instead, simulate a capture while sync was in the air by re-doing the test:
-    // Reset and run again with a capture interleaved.
-    await act(async () => {
-      render(<Probe />);
-    });
-
-    let resolveSync2!: (tasks: Task[]) => void;
-    freshSyncMock().mockImplementation(() => new Promise<Task[]>((r) => { resolveSync2 = r; }));
-
-    await act(async () => {
-      render(<Probe />);
-    });
-
-    // Capture while sync is in flight.
+    // Capture while the mount sync is in the air.
     await act(async () => {
       latestResult!.capture("mid-flight task", "work", null);
     });
@@ -98,16 +70,16 @@ describe("Settle rebases an in-flight sync", () => {
     expect(tasksAfterCapture).toHaveLength(1);
     expect(tasksAfterCapture[0].text).toBe("mid-flight task");
 
-    // Resolve sync with stale result (empty).
+    // Resolve sync with a stale result (empty — computed before the capture existed).
     await act(async () => {
-      resolveSync2([]);
+      resolveSync([]);
     });
 
     // The mid-flight capture must survive: higher updatedAt wins in merge.
     expect(latestResult!.tasks).toHaveLength(1);
     expect(latestResult!.tasks[0].text).toBe("mid-flight task");
 
-    // Persisted exactly once by settle (merge + persist inside try/catch).
+    // Persisted by settle (merge + persist inside try/catch).
     expect(localStorage.getItem("tasks/v1")).not.toBeNull();
   });
 });
@@ -118,9 +90,9 @@ describe("Debounce", () => {
     const syncFn = freshSyncMock();
     syncFn.mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
+    // Discount the immediate mount sync; only the debounced one is under test.
+    syncFn.mockClear();
 
     await act(async () => {
       latestResult!.capture("task one", "work", null);
@@ -152,9 +124,9 @@ describe("Debounce", () => {
     const syncFn = freshSyncMock();
     syncFn.mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
+    // Discount the immediate mount sync; only the debounced one is under test.
+    syncFn.mockClear();
 
     await act(async () => {
       latestResult!.capture("first", "work", null);
@@ -184,14 +156,11 @@ describe("Debounce", () => {
 
 describe("Identity guards", () => {
   it("a no-op edit leaves saveError true, arms no sync, and keeps tasks reference", async () => {
-    throwOnSetItem();
     freshSyncMock().mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
-    // Seed a task and raise saveError.
+    // Seed a task.
     await act(async () => {
       latestResult!.capture("original", "work", null);
     });
@@ -204,16 +173,18 @@ describe("Identity guards", () => {
     });
     expect(latestResult!.saveError).toBe(true);
 
-    // Restore storage so edit can reach the store (but store will return same ref).
+    // Restore storage so a real write *could* land — proving the no-op below never
+    // reaches it.
     vi.mocked(Storage.prototype.setItem).mockRestore();
 
     const tasksBefore = latestResult!.tasks;
     const syncFn = freshSyncMock();
     syncFn.mockClear();
 
-    // Edit with the same text — store returns the same reference (no-op).
+    // Edit with blank text — the store keeps what was there and hands back the same
+    // reference, so this mutation is a no-op that never touches storage.
     await act(async () => {
-      latestResult!.edit(tasksBefore[0], "original");
+      latestResult!.edit(tasksBefore[0], "");
     });
 
     // saveError must still be true — the no-op must not clear it.
@@ -229,9 +200,7 @@ describe("Stale-prop repair", () => {
   it("complete on a stale object, then undo, restores the edited text from latest", async () => {
     freshSyncMock().mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
     // Capture a task.
     await act(async () => {
@@ -263,9 +232,7 @@ describe("Undo restart-on-failure", () => {
   it("refused restore keeps pending non-null and bumps token", async () => {
     freshSyncMock().mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
     await act(async () => {
       latestResult!.capture("undoable", "work", null);
@@ -299,9 +266,7 @@ describe("Undo restart-on-failure", () => {
   it("expire clears pending", async () => {
     freshSyncMock().mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
     await act(async () => {
       latestResult!.capture("to-expire", "work", null);
@@ -324,12 +289,13 @@ describe("Write-failure boundary at the seam", () => {
     throwOnSetItem();
     freshSyncMock().mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
     const tasksBefore = latestResult!.tasks;
-    const result = latestResult!.capture("will fail", "work", null);
+    let result!: boolean;
+    await act(async () => {
+      result = latestResult!.capture("will fail", "work", null);
+    });
 
     expect(result).toBe(false);
     expect(latestResult!.tasks).toBe(tasksBefore); // same reference
@@ -340,9 +306,7 @@ describe("Write-failure boundary at the seam", () => {
   it("throwing setItem makes complete return false, adopt nothing, raise saveError, create no pending", async () => {
     freshSyncMock().mockImplementation(async (local: Task[]) => local);
 
-    await act(async () => {
-      render(<Probe />);
-    });
+    await render(<Probe />);
 
     await act(async () => {
       latestResult!.capture("existing", "work", null);
@@ -350,7 +314,10 @@ describe("Write-failure boundary at the seam", () => {
 
     throwOnSetItem();
     const tasksBefore = latestResult!.tasks;
-    const result = latestResult!.complete(latestResult!.tasks[0]);
+    let result!: boolean;
+    await act(async () => {
+      result = latestResult!.complete(latestResult!.tasks[0]);
+    });
 
     expect(result).toBe(false);
     expect(latestResult!.tasks).toBe(tasksBefore);
