@@ -1,6 +1,6 @@
 # 01: Notification layer moves to the top-right corner, compact
 
-**Status:** ready-for-agent
+**Status:** complete
 **Blocked by:** None (independent of 02).
 **Spec:** `.scratch/toast-and-button-swipe/spec.md` (Feature 1)
 
@@ -44,9 +44,9 @@ assertion, that is a spec violation — stop and report instead of adapting the 
 
 ## Done when
 
-- [ ] T1–T4 written first and red against current `main`-equivalent code
-- [ ] Implementation makes them green without editing any pre-existing test
-- [ ] `npm test` whole suite green, `npx tsc -b` clean
+- [x] T1–T4 written first and red against current `main`-equivalent code
+- [x] Implementation makes them green without editing any pre-existing test
+- [x] `npm test` whole suite green, `npx tsc -b` clean
 
 ## Comments
 
