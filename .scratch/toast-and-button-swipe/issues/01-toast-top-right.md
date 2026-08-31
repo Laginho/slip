@@ -71,6 +71,10 @@ Validated on the branch. Two defects, one of them not in the return report:
    Every "unrelated" failure MAKE reported is this stale base: on the declared base
    branch the suite is 136/136 and `tsc -b` is clean (verified). The return handoff
    misattributed this to "a separate missing-useSession ticket".
+   *Attribution amended after triage:* the stale branch came from the launch context
+   (the user relayed into an existing Traycer task, so branch selection was not
+   PLAN's choice). PLAN's culpability is narrower: it drove a full cycle on a
+   visibly dirty base and reported around it instead of stopping and handing back.
 
 MAKE's production diff matches the plan and is approved in content, but was written
 against the pre-useSession `App.tsx` and must be re-landed on the correct base.
