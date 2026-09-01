@@ -109,9 +109,10 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
   // focus-within: focus and blur bubble in React, so a child button tabbed to sets this.
   const [focusedWithin, setFocusedWithin] = useState(false);
 
-  const origin = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
+  const origin = useRef<{ x: number; y: number; dragged: boolean; fromButton: boolean } | null>(null);
   const longPress = useRef<number | undefined>(undefined);
   const pendingTap = useRef<number | undefined>(undefined);
+  const suppressClick = useRef(false);
 
   /** The in-place edit input, and the control keyboard commits hand focus back to. */
   const editInput = useRef<HTMLInputElement>(null);
@@ -195,17 +196,23 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
 
   const onPointerDown = (event: ReactPointerEvent<HTMLLIElement>) => {
     if (editing || phase.kind === "exit") return;
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // A pointer that is already gone (or a synthetic one) must not break the gesture.
+    suppressClick.current = false;
+    const fromButton = (event.target as Element).closest("button") !== null;
+    if (!fromButton) {
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // A pointer that is already gone (or a synthetic one) must not break the gesture.
+      }
     }
-    origin.current = { x: event.clientX, y: event.clientY, dragged: false };
+    origin.current = { x: event.clientX, y: event.clientY, dragged: false, fromButton };
     setPhase({ kind: "drag", dx: 0 });
-    longPress.current = window.setTimeout(() => {
-      origin.current = null; // consumed: the pointerup must not also count as a tap
-      beginEdit();
-    }, LONG_PRESS_MS);
+    if (!fromButton) {
+      longPress.current = window.setTimeout(() => {
+        origin.current = null; // consumed: the pointerup must not also count as a tap
+        beginEdit();
+      }, LONG_PRESS_MS);
+    }
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLLIElement>) => {
@@ -215,6 +222,12 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
       Math.abs(event.clientX - start.x) > SLOP_PX ||
       Math.abs(event.clientY - start.y) > SLOP_PX
     ) {
+      if (!start.dragged && start.fromButton) {
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {}
+        suppressClick.current = true;
+      }
       start.dragged = true;
       window.clearTimeout(longPress.current); // moving means this is not a long-press
     }
@@ -233,6 +246,10 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
     if (dx <= -SWIPE_PX) return beginExit("left");
     // A drag that never reached the threshold springs back and does nothing.
     if (start.dragged) return setPhase({ kind: "spring" });
+    if (start.fromButton) {
+      setPhase({ kind: "rest" });
+      return;
+    }
     setPhase({ kind: "rest" });
 
     if (pendingTap.current !== undefined) {
@@ -291,11 +308,6 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
     cursor: revealActions ? "pointer" : "default",
   } as const;
 
-  /** Gestures live on the <li>; a button press must not start one. */
-  const swallowPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-  };
-
   // The three native buttons, reused as-is: direct children of the row on the wall,
   // wrapped in their own trailing row inside the bubble's column.
   const actions = (
@@ -303,9 +315,12 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
       <button
         type="button"
         aria-label="Concluir"
-        onPointerDown={swallowPointerDown}
         onClick={(event) => {
           event.stopPropagation();
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
           onComplete(task);
         }}
         style={actionStyle}
@@ -316,9 +331,12 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
         ref={editarButton}
         type="button"
         aria-label="Editar"
-        onPointerDown={swallowPointerDown}
         onClick={(event) => {
           event.stopPropagation();
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
           beginEdit();
         }}
         style={actionStyle}
@@ -328,9 +346,12 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
       <button
         type="button"
         aria-label="Apagar"
-        onPointerDown={swallowPointerDown}
         onClick={(event) => {
           event.stopPropagation();
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
           onDelete(task);
         }}
         style={actionStyle}

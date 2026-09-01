@@ -281,6 +281,229 @@ describe("a swipe flight whose write fails", () => {
  * (left-aligned 86%, radius 6/16/16/16, "vence 30/08" em meta separada), true
  * renders the wall card (radius 10, sem cap 86%, "30/08" sem prefixo "vence").
  */
+describe("gestures starting on a revealed action button", () => {
+  const fire = (type: string, x: number) =>
+    new PointerEvent(type, { bubbles: true, clientX: x, clientY: 0, pointerId: 1 });
+
+  const transitionEnd = () =>
+    Object.assign(new Event("transitionend", { bubbles: true }), {
+      propertyName: "transform",
+    });
+
+  async function revealButton(container: HTMLElement, label: string) {
+    const button = queryLabel(container, label)!;
+    await act(async () => button.focus());
+    return button;
+  }
+
+  it("M1 — sub-slop press+release on ✓ fires onComplete, no edit", async () => {
+    vi.useFakeTimers();
+    try {
+      const onComplete = vi.fn(() => true);
+      const { container } = await renderCard({ onComplete });
+      const button = await revealButton(container, "Concluir");
+
+      await dispatch(fire("pointerdown", 0), button);
+      await dispatch(fire("pointerup", 0), button);
+      await dispatch(new MouseEvent("click", { bubbles: true }), button);
+      await act(async () => { vi.advanceTimersByTime(300); });
+
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M2 — long-press on ✓ does not open editor, fires onComplete on release", async () => {
+    vi.useFakeTimers();
+    try {
+      const onComplete = vi.fn(() => true);
+      const { container } = await renderCard({ onComplete });
+      const button = await revealButton(container, "Concluir");
+
+      await dispatch(fire("pointerdown", 0), button);
+      await act(async () => { vi.advanceTimersByTime(600); });
+      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+
+      await dispatch(fire("pointerup", 0), button);
+      await dispatch(new MouseEvent("click", { bubbles: true }), button);
+
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M3 — swipe right from ✓ flies card off-screen, onComplete on transitionend, trailing click is inert", async () => {
+    const onComplete = vi.fn(() => true);
+    const { container } = await renderCard({ onComplete });
+    const li = container.querySelector("li")!;
+    const button = await revealButton(container, "Concluir");
+
+    await dispatch(fire("pointerdown", 0), button);
+    await dispatch(fire("pointermove", 100), li);
+    await dispatch(fire("pointerup", 100), li);
+
+    expect(li.style.transform).toBe("translateX(110%)");
+    expect(onComplete).not.toHaveBeenCalled();
+
+    await dispatch(transitionEnd(), li);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    await dispatch(new MouseEvent("click", { bubbles: true }), button);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("M4 — swipe left from ✓ flies card left, onDelete fires, onComplete never", async () => {
+    const onComplete = vi.fn(() => true);
+    const onDelete = vi.fn(() => true);
+    const { container } = await renderCard({ onComplete, onDelete });
+    const li = container.querySelector("li")!;
+    const button = await revealButton(container, "Concluir");
+
+    await dispatch(fire("pointerdown", 100), button);
+    await dispatch(fire("pointermove", 10), li);
+    await dispatch(fire("pointerup", 10), li);
+
+    expect(li.style.transform).toBe("translateX(-110%)");
+
+    await dispatch(transitionEnd(), li);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    await dispatch(new MouseEvent("click", { bubbles: true }), button);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("M5 — sub-slop press+release on × fires onDelete, card at rest", async () => {
+    vi.useFakeTimers();
+    try {
+      const onDelete = vi.fn(() => true);
+      const { container } = await renderCard({ onDelete });
+      const li = container.querySelector("li")!;
+      const button = await revealButton(container, "Apagar");
+
+      await dispatch(fire("pointerdown", 0), button);
+      await dispatch(fire("pointermove", 5), li);
+      await dispatch(fire("pointerup", 5), li);
+      await dispatch(new MouseEvent("click", { bubbles: true }), button);
+      await act(async () => { vi.advanceTimersByTime(300); });
+
+      expect(onDelete).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+      expect(li.style.transform).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M6 — double-tap on ✓ fires onComplete exactly twice, not three times", async () => {
+    vi.useFakeTimers();
+    try {
+      const onComplete = vi.fn(() => true);
+      const { container } = await renderCard({ onComplete });
+      const button = await revealButton(container, "Concluir");
+
+      // First tap
+      await dispatch(fire("pointerdown", 0), button);
+      await dispatch(fire("pointerup", 0), button);
+      await dispatch(new MouseEvent("click", { bubbles: true }), button);
+      // Second tap within DOUBLE_TAP_MS
+      await act(async () => { vi.advanceTimersByTime(100); });
+      await dispatch(fire("pointerdown", 0), button);
+      await dispatch(fire("pointerup", 0), button);
+      await dispatch(new MouseEvent("click", { bubbles: true }), button);
+      await act(async () => { vi.advanceTimersByTime(300); });
+
+      expect(onComplete).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M7 — long-press on Card body still opens editor (body gestures untouched)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = await renderCard();
+      const li = container.querySelector("li")!;
+
+      await dispatch(fire("pointerdown", 0), li);
+      await act(async () => { vi.advanceTimersByTime(500); });
+
+      expect(container.querySelector('input[aria-label="Task"]')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M8 — swipe then release on ✎ springs back, click does not trigger edit", async () => {
+    const onEdit = vi.fn(() => true);
+    const { container } = await renderCard({ onEdit });
+    const li = container.querySelector("li")!;
+    const button = await revealButton(container, "Editar");
+
+    await dispatch(fire("pointerdown", 0), button);
+    await dispatch(fire("pointermove", 40), li);
+    await dispatch(fire("pointerup", 40), li);
+
+    // Sub-slop drag springs back
+    expect(li.style.transform).toContain("translateX");
+
+    await dispatch(new MouseEvent("click", { bubbles: true }), button);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("M9 — fine-pointer: button press fires action, body tap opens editor after delay", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "matchMedia",
+      (query: string) => ({
+        matches: query === "(hover: hover)" || query === "(pointer: fine)",
+        media: query,
+      }),
+    );
+    try {
+      const onComplete = vi.fn(() => true);
+      const { container } = await renderCard({ onComplete });
+      const li = container.querySelector("li")!;
+      const button = await revealButton(container, "Concluir");
+
+      // Button path
+      await dispatch(fire("pointerdown", 0), button);
+      await dispatch(fire("pointerup", 0), button);
+      await dispatch(new MouseEvent("click", { bubbles: true }), button);
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+
+      // Body path — fine-pointer tap-edit
+      await dispatch(fire("pointerdown", 0), li);
+      await dispatch(fire("pointerup", 0), li);
+      await act(async () => { vi.advanceTimersByTime(250); });
+      expect(container.querySelector('input[aria-label="Task"]')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M10 — onComplete returns false: swipe springs back after transitionend", async () => {
+    const onComplete = vi.fn(() => false);
+    const { container } = await renderCard({ onComplete });
+    const li = container.querySelector("li")!;
+    const button = await revealButton(container, "Concluir");
+
+    await dispatch(fire("pointerdown", 0), button);
+    await dispatch(fire("pointermove", 100), li);
+    await dispatch(fire("pointerup", 100), li);
+
+    expect(li.style.transform).toBe("translateX(110%)");
+
+    await dispatch(transitionEnd(), li);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(li.style.transform).toBe("translateX(0)");
+  });
+});
+
 describe("visual — promoção B/A Conversa (mobile) vs A/A Parede (desktop)", () => {
   const FIXED_NOW = new Date(2026, 7, 27, 12, 0, 0); // 27/08/2026 local
 

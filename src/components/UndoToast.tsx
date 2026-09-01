@@ -15,8 +15,9 @@ import { TOAST_BG, TOAST_INK } from "../palette";
  * remainder of the previous window.
  *
  * Positioned entirely by the parent's fixed layer at the top of the window: this
- * component only fills that layer's column width. Being out of the document flow is
- * the point -- appearing and expiring must never lay out the list below.
+ * component sizes itself as a compact card in the top-right corner. Being out of
+ * the document flow is the point -- appearing and expiring must never lay out the
+ * list below.
  */
 
 type Props = {
@@ -53,7 +54,7 @@ export function UndoToast({ label, onUndo, onExpire }: Props) {
         alignItems: "center",
         justifyContent: "space-between",
         gap: 12,
-        width: "100%",
+        maxWidth: "min(360px, calc(100vw - 24px))",
         padding: "10px 14px",
         borderRadius: 10,
         background: TOAST_BG,

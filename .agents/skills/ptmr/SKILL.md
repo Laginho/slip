@@ -32,7 +32,7 @@ MAKE: <model>
 READ: <model>
 ```
 
-The Cast block is the **sole model authority**. PLAN resolves names via `traycer_list_harness_models`. If a name does not resolve, PLAN stops and hands back — **never substitutes a model silently**. A silent substitution corrupts the ledger.
+The Cast block is the **sole model authority**. Cast names are the user's informal names; PLAN resolves each one by **searching** the full `traycer_list_harness_models` listing across every harness (opencode included) — case-insensitive, punctuation- and order-tolerant, with version fragments and a parenthesised effort ("(medium)") as qualifiers. A unique match is used and the informal-name → harness-id mapping is reported in the return handoff. Zero or multiple matches → PLAN stops and hands back **listing the closest candidates it found** — giving up without searching, or a bare "not found", is a contract violation. **Never substitute a model silently**: a silent substitution corrupts the ledger.
 
 ## Commits
 

@@ -337,6 +337,73 @@ describe("the notification layer", () => {
   function main_of(el: Element): Element {
     return el.parentElement!.parentElement!;
   }
+
+  it("T1 — layer aligns children to the right edge (flex-end), not centre", async () => {
+    seedStorage([task({ id: "t1", text: "entregar relatório" })]);
+    const container = await render(<App />);
+
+    await activate(queryLabel(container, "Concluir")!);
+    const toast = container.querySelector<HTMLElement>('[role="status"]')!;
+    const layer = nearestFixedAncestor(toast)!;
+
+    expect(layer).not.toBeNull();
+    expect(layer.style.position).toBe("fixed");
+    expect(layer.style.top).toBe("0px");
+    expect(layer.style.left).toBe("0px");
+    expect(layer.style.right).toBe("0px");
+    expect(layer.style.alignItems).toBe("flex-end");
+    expect(layer.style.pointerEvents).toBe("none");
+  });
+
+  it("T2 — toast has no width:100% and caps at 360px; pointer-events:auto", async () => {
+    seedStorage([task({ id: "t2", text: "comprar pão" })]);
+    const container = await render(<App />);
+
+    await activate(queryLabel(container, "Concluir")!);
+    const toast = container.querySelector<HTMLElement>('[role="status"]')!;
+
+    expect(toast).not.toBeNull();
+    expect(toast.style.width).toBe("");
+    expect(toast.style.maxWidth).toBe("min(360px, calc(100vw - 24px))");
+    expect(toast.style.pointerEvents).toBe("auto");
+  });
+
+  it("T3 — no ancestor between toast and fixed layer carries max-width:596px", async () => {
+    seedStorage([task({ id: "t3", text: "ler um capítulo" })]);
+    const container = await render(<App />);
+
+    await activate(queryLabel(container, "Concluir")!);
+    const toast = container.querySelector<HTMLElement>('[role="status"]')!;
+    const layer = nearestFixedAncestor(toast)!;
+
+    let node: Element | null = toast.parentElement;
+    while (node !== null && node !== layer) {
+      expect(
+        (node as HTMLElement).style.maxWidth,
+        `ancestor ${node.tagName} must not have maxWidth:596px`,
+      ).not.toBe("596px");
+      node = node.parentElement;
+    }
+  });
+
+  it("T4 — toast and banner share the same fixed layer; banner has maxWidth cap", async () => {
+    seedStorage([task({ id: "t4", text: "entregar relatório" })]);
+    const container = await render(<App />);
+
+    await activate(queryLabel(container, "Concluir")!);
+    expect(container.querySelector('[role="status"]')).not.toBeNull();
+
+    throwOnSetItem();
+    await activate(undoButton(container)!);
+
+    const status = container.querySelector<HTMLElement>('[role="status"]')!;
+    const alert = container.querySelector<HTMLElement>('[role="alert"]')!;
+    expect(status).not.toBeNull();
+    expect(alert).not.toBeNull();
+
+    expect(nearestFixedAncestor(status)).toBe(nearestFixedAncestor(alert));
+    expect(alert.style.maxWidth).toBe("min(360px, calc(100vw - 24px))");
+  });
 });
 
 /**
