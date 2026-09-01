@@ -1,6 +1,6 @@
 # 02: A swipe may start on a revealed action button
 
-**Status:** ready-for-agent
+**Status:** complete
 **Blocked by:** None (independent of 01).
 **Spec:** `.scratch/toast-and-button-swipe/spec.md` (Feature 2)
 
