@@ -16,6 +16,9 @@ tickets at `issues/<NN>-<slug>.md`.
   the session was launched on).
 - Every cycle gets a FRESH Traycer task (never relay into an existing one — a reused
   task pins a stale branch; see toast-and-button-swipe ledger, cycle 01).
+- The launch message must NAME THE ROLE ("you are PLAN", with the role doc's absolute
+  path): an agent spawned without it assumes it is the master dev and starts writing
+  handoffs instead of orchestrating (see toast-and-button-swipe handoffs 06–07).
 - Master-dev validation ends with disposal: after the fast-forward into the feature
   branch, remove the cycle's worktree (`git worktree remove <path>`, listed under
   `~/.traycer/worktrees/`) and delete its `traycer/*` branch. The commits live on in
