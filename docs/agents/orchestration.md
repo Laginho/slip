@@ -14,6 +14,12 @@ tickets at `issues/<NN>-<slug>.md`.
 - Base branch: `main`. The user merges PRs; agents never push to `main`.
 - Cycle work happens on the Traycer-managed `traycer/*` branch (or the worktree branch
   the session was launched on).
+- Every cycle gets a FRESH Traycer task (never relay into an existing one — a reused
+  task pins a stale branch; see toast-and-button-swipe ledger, cycle 01).
+- Master-dev validation ends with disposal: after the fast-forward into the feature
+  branch, remove the cycle's worktree (`git worktree remove <path>`, listed under
+  `~/.traycer/worktrees/`) and delete its `traycer/*` branch. The commits live on in
+  the feature branch; keeping the husk only accumulates clutter.
 
 ## Gates
 
