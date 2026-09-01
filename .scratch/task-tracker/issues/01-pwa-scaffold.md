@@ -1,6 +1,6 @@
 # 01 — PWA scaffold and installable shell
 
-Status: ready-for-agent
+Status: complete
 Blocked by: —
 Delegation: build this before delegating anything else; it sets the pattern the rest copies
 

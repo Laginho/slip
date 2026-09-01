@@ -1,6 +1,6 @@
 # 06 — Gestures and the undo window
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 05
 Delegation: the undo window is the risky half — review it directly, do not take it on trust
 

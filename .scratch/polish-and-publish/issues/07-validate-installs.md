@@ -15,9 +15,25 @@ checklist); `.scratch/task-tracker/spec.md` (Platform section).
 
 **Blocked by:** 06 (published URL with sync live).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Installed and launched standalone on Android; opens and works in airplane mode
-- [ ] Installed and launched standalone on Windows; opens and works offline
-- [ ] Autostart on login + start minimised configured on Windows and verified by an actual reboot/login, or the documented fallback applied
-- [ ] Outcomes recorded under `## Comments` in this file
+- [x] Installed and launched standalone on Android; opens and works in airplane mode
+- [x] Installed and launched standalone on Windows; opens and works offline
+- [x] Autostart on login + start minimised configured on Windows and verified by an actual reboot/login, or the documented fallback applied
+- [x] Outcomes recorded under `## Comments` in this file
+
+## Comments
+
+### Validação 2026-08-31 (hands-on, guiada pelo setup-ticket-07.sh)
+
+- **Windows install standalone:** PASS — entrada no menu Iniciar, janela própria, sem chrome de navegador.
+- **Windows offline:** PASS — funciona com rede desligada e sincroniza ao religar.
+- **Android install standalone:** PASS via **Chrome** (WebAPK: ícone e janela próprios). Primeira tentativa via Brave **falhou** — Brave não gera WebAPK; só o Chrome instala de verdade no Android. Registrado como restrição de plataforma.
+- **Android offline:** PASS — funciona em modo avião e sincroniza depois.
+- **Autostart:** toggle nativo do browser ligado e verificado. **Iniciar minimizado não existe nativamente** — o app abre em janela normal no login; aceito assim. O fallback da spec (atalho em `shell:startup` com *Executar: Minimizada*) fica documentado como opção se incomodar, com a ressalva de que PWAs Chromium podem ignorar o flag.
+
+Caveats surgidos na validação, abertos como issues:
+
+- Ícone do launcher redondo briga com o outline de ícones do Android → `08-launcher-icon.md`
+- Mudanças feitas offline só sobem quando o app é reaberto no aparelho → `09-background-sync.md`
+

@@ -1,6 +1,6 @@
 # 04 — Capture: bottom input, Kind chips, optional deadline
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 02, 03
 
 The most important interaction in the app. The bar is a WhatsApp message: type, Enter,

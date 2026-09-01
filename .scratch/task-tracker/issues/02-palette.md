@@ -1,6 +1,6 @@
 # 02 — Palette file
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 01
 
 One file holding every colour in the app as a named constant. The user tunes the values
