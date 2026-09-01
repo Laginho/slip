@@ -1,6 +1,6 @@
 # 08 — Archive
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 05
 
 Done Tasks, kept forever, out of the way. The user occasionally needs to look back at

@@ -1,6 +1,6 @@
 # 03 — Task store, local and authoritative
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 01
 Delegation: keep this one — the write path is what every later ticket depends on
 

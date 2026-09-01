@@ -1,6 +1,6 @@
 # 07 — Swipe animation
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 06
 
 The one animation the MVP needs. Not polish: a swipe with no motion gives the user no

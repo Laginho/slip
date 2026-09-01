@@ -1,6 +1,6 @@
 # 05 — Cards and the list
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 02, 03
 
 Render Open Tasks as Cards. Colour is the entire information design here — hue tells you

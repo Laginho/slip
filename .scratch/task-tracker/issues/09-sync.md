@@ -1,6 +1,6 @@
 # 09 — Sync
 
-Status: ready-for-agent
+Status: complete
 Blocked by: 03, 04, 05, 06, 08
 Delegation: **do not delegate to a weak executor model.** ~40 lines where plausible-looking
 code is silently wrong. Write the tests first; they are the only objective check.
