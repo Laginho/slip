@@ -9,7 +9,7 @@ window frame follows the page colour in both schemes.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** needs-triage
 
 - [ ] Chrome tokens (surface, capture ground, primary text, quiet text, hairline, toast ground, toast ink) exist as a light set and a dark set in the palette; Card swatches, inks and Overdue red remain single frozen values
 - [ ] Dark values meet the spec constraints: warm near-black surface; primary and quiet text ≥ 4.5:1 on it; hairline visible; toast inverted (ivory ground, charcoal ink). Values documented in the palette with the same commentary discipline
