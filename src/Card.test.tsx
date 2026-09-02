@@ -700,4 +700,27 @@ describe("44px hit targets", () => {
     await dispatch(transitionEnd(), li);
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
+
+  it("row 9 — each control has inline margin \"-13px -12px\" (vertical 13px each side, horizontal -12px)", async () => {
+    const { container } = await renderCard();
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLElement;
+      expect(button).not.toBeNull();
+      expect(button.style.margin).toBe("-13px -12px");
+    }
+  });
+
+  it("row 10 — desktop (wide): the <li> has inline gap \"10px\"", async () => {
+    stubDesktopMedia();
+    const { container } = await renderCard(true);
+    const li = container.querySelector("li")!;
+    expect(li.style.gap).toBe("10px");
+  });
+
+  it("row 11 — no-match (bubble): the actions container (parent of Concluir) has inline gap \"4px\"", async () => {
+    const { container } = await renderCard();
+    const concluir = queryLabel(container, "Concluir")!;
+    const actionsContainer = concluir.parentElement!;
+    expect(actionsContainer.style.gap).toBe("4px");
+  });
 });
