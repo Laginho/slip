@@ -1,4 +1,4 @@
-# Task Tracker
+# Slip
 
 A single-user personal task tracker. It replaces a solo WhatsApp group used as a task
 log, whose failure was that chat cannot mark anything as finished.
@@ -6,7 +6,8 @@ log, whose failure was that chat cannot mark anything as finished.
 ## Language
 
 **Task**:
-One thing the user intends to do, expressed as a single line of text.
+One thing the user intends to do, expressed as a short text: one line, or a few lines
+separated by plain line breaks. Line breaks carry no meaning; a sub-item is not a Task.
 _Avoid_: Ticket, item, todo, note
 
 **Card**:
@@ -32,8 +33,7 @@ _Avoid_: Triage, planning
 
 **Kind**:
 Which part of the user's life a Task belongs to: Work, College, or Chore. Chosen at
-Capture, drives the Card's hue, and breaks ties between Tasks sharing a Deadline
-(Work first, then College, then Chore).
+Capture and drives the Card's hue.
 _Avoid_: Category, type, tag, label, project
 
 **Deadline**:
@@ -45,6 +45,14 @@ _Avoid_: Due date, do date, scheduled date, when
 How close a Task's Deadline is, expressed as the intensity of its Card's colour.
 Always derived, never chosen by the user.
 _Avoid_: Priority, importance, severity
+
+**Position**:
+Where a Task sits among its peers, read left-to-right, top-to-bottom. Peers are the
+Tasks sharing its Deadline, or every dateless Task when it has none. A new Task takes
+the last place among its peers; on the desktop the user may drag it to another. Dated
+Tasks always come before dateless ones, nearest Deadline first, and a Task never moves
+between Deadlines.
+_Avoid_: Order, rank, index, sort key
 
 **Archive**:
 Every Task the user has ever marked Done. Kept forever; only the most recent week is

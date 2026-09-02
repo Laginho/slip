@@ -1,5 +1,5 @@
 ---
-name: Tasks
+name: Slip
 description: A local-first personal task tracker that captures like a chat app
 colors:
   surface: "#f5f4f2"
@@ -46,7 +46,7 @@ components:
     textColor: "{colors.text-primary}"
 ---
 
-# Design System: Tasks
+# Design System: Slip
 
 ## Overview
 
