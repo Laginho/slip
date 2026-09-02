@@ -54,6 +54,66 @@ export function stubDesktopMedia(): void {
   }));
 }
 
+export function stubDarkMedia(): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(prefers-color-scheme: dark)",
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
+
+export function stubDarkDesktopMedia(): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches:
+      query === "(prefers-color-scheme: dark)" ||
+      query === "(min-width: 900px)" ||
+      query === "(pointer: fine)",
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
+
+/**
+ * Returns a matchMedia stub that matches the given queries, and records every
+ * `addEventListener("change", ...)` call so the test can fire listeners later.
+ * Use this when the test must simulate a live prefers-color-scheme change.
+ */
+export function stubMediaWithChangeListener(
+  matches: (query: string) => boolean,
+): { listeners: Map<string, ((event: MediaQueryListEvent) => void)[]> } {
+  const listeners = new Map<string, ((event: MediaQueryListEvent) => void)[]>();
+  vi.stubGlobal("matchMedia", (query: string) => {
+    const ql = listeners.get(query) ?? [];
+    if (!listeners.has(query)) listeners.set(query, ql);
+    return {
+      matches: matches(query),
+      media: query,
+      onchange: null,
+      addEventListener: (_type: string, handler: (event: MediaQueryListEvent) => void) => {
+        ql.push(handler);
+      },
+      removeEventListener: (_type: string, handler: (event: MediaQueryListEvent) => void) => {
+        const idx = ql.indexOf(handler);
+        if (idx !== -1) ql.splice(idx, 1);
+      },
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    };
+  });
+  return { listeners };
+}
+
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
 
