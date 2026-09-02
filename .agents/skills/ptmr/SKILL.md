@@ -12,7 +12,7 @@ PTMR is **opt-in**: the user invokes it explicitly per feature. It is never the 
 ## The cycle
 
 1. **Master dev** writes a handoff (see [HANDOFF-TEMPLATE.md](HANDOFF-TEMPLATE.md)) covering **one issue** — or 2–3 only when the plan says they are inseparable — and pre-marks any **not-test-first** slices (markup, gesture timing). The handoff goes to `.scratch/<feature>/handoffs/NN-<direction>.md` (gitignored, never committed).
-2. **The user relays**: they start a Traycer task for PLAN with the handoff's absolute path in the launch message. (v2: master dev runs as a Traycer agent and messages PLAN directly.)
+2. **The user relays**: they start a Traycer agent (fresh worktree, base branch = the one the handoff names) with the shorthand launch message `/ptmr you are <role>. handoff <NN>.` — nothing else. The role resolves its own inputs from that (see "Launch shorthand" below). A full absolute path is still accepted but never required. (v2: master dev runs as a Traycer agent and messages PLAN directly.)
 3. **PLAN** reads the handoff, spawns TEST → MAKE → READ in order via `traycer_create_agent` / `traycer_send_message`, passing each its role doc by absolute path. PLAN never touches code. After each phase, PLAN commits that phase's work — three commits per cycle, never squashed.
 4. **PLAN hands back**: a return handoff at the next `NN-` number, reporting what happened, per phase.
 5. **Master dev validates** on the branch: full suite, diff vs plan, commit trail. Then either:

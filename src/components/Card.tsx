@@ -304,6 +304,12 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
     padding: "0 2px",
     fontSize: 18,
     lineHeight: 1,
+    minWidth: 44,
+    minHeight: 44,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "-13px -12px",
     // The browser's default focus outline stays; hiding it would undo the reveal.
     cursor: revealActions ? "pointer" : "default",
   } as const;
