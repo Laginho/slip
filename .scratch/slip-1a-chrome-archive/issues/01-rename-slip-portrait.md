@@ -8,15 +8,15 @@ in place and keeps its Tasks.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] Manifest `name` and `short_name` are "Slip"
-- [ ] Manifest has `orientation: "portrait"`
-- [ ] HTML `<title>` is "Slip"
-- [ ] Package name is "slip"; the build plugin's internal name no longer says task-tracker
-- [ ] DESIGN.md front-matter `name` and heading say Slip
-- [ ] Base path, scope, start URL, icons, workbox config and storage keys are unchanged
-- [ ] `npm test` and `npx tsc -b` green; the existing publish tests still pass
+- [x] Manifest `name` and `short_name` are "Slip"
+- [x] Manifest has `orientation: "portrait"`
+- [x] HTML `<title>` is "Slip"
+- [x] Package name is "slip"; the build plugin's internal name no longer says task-tracker
+- [x] DESIGN.md front-matter `name` and heading say Slip
+- [x] Base path, scope, start URL, icons, workbox config and storage keys are unchanged
+- [x] `npm test` and `npx tsc -b` green; the existing publish tests still pass
 
 ## Test Case Matrix
 
