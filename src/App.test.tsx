@@ -421,7 +421,11 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
 
   function hasHairline(style: CSSStyleDeclaration | string): boolean {
     const s = typeof style === "string" ? style : (style.borderTop || style.border || "");
+    // After dark chrome, CaptureBar uses var(--hairline) inline. Before that,
+    // the literal #e2e0dc appears. Accept both so the test stays green across
+    // the cycle without compelling production to hardcode a fallback.
     return (
+      s.includes("var(--hairline)") ||
       s.includes("#e2e0dc") ||
       s.includes("e2e0dc") ||
       s.includes("226, 224, 220") ||
@@ -908,19 +912,19 @@ describe("dark chrome", () => {
     // Starts in light mode
     expect(root.style.getPropertyValue("--surface")).toBe(CHROME.light.surface);
 
-    // Now simulate a live change to dark
-    // jsdom stub didn't record listeners; re-render with the listener-recording stub
+    // Re-render with a stub that starts NOT dark (predicate false) and records
+    // the addEventListener("change", ...) call so we can fire it later.
     await unmount();
     const rec = stubMediaWithChangeListener(
-      (q) => q === "(prefers-color-scheme: dark)",
+      (q) => q === "(min-width: 900px)", // dark is NOT matched initially
     );
     const container2 = await render(<App />);
     const root2 = container2.firstElementChild as HTMLElement;
 
-    // Starts light
+    // Still light after re-render
     expect(root2.style.getPropertyValue("--surface")).toBe(CHROME.light.surface);
 
-    // Fire the change listener
+    // Fire the change listener to simulate prefers-color-scheme flipping to dark
     const darkListeners = rec.listeners.get("(prefers-color-scheme: dark)") ?? [];
     expect(darkListeners.length, "change listener must be registered").toBeGreaterThan(0);
     act(() => {
