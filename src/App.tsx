@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { SURFACE, TEXT_PRIMARY, TOAST_BG, TOAST_INK } from "./palette";
+import { CHROME } from "./palette";
 import { useSession } from "./useSession";
 import { Archive } from "./components/Archive";
 import { CaptureBar } from "./components/CaptureBar";
@@ -44,6 +44,15 @@ export function App() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (event: MediaQueryListEvent) => setDark(event.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   /**
    * One clock for the whole screen, refreshed on focus, on visibilitychange, and at each
    * local midnight -- an always-open desktop window never fires focus. Both the Cards'
@@ -77,20 +86,31 @@ export function App() {
     };
   }, []);
 
+  const chrome = CHROME[dark ? "dark" : "light"];
+
   return (
     <div
-      style={{
-        // dvh, not vh: the phone keyboard must shrink the list, not push the bar off-screen.
-        height: "100dvh",
-        display: "flex",
-        flexDirection: "column",
-        background: SURFACE,
-        color: TEXT_PRIMARY,
-        // The phone column cap. On a wide viewport the wall wants the monitor's
-        // width -- the grid inside decides how many columns that buys.
-        maxWidth: wide ? "none" : 620,
-        margin: "0 auto",
-      }}
+      style={
+        {
+          // dvh, not vh: the phone keyboard must shrink the list, not push the bar off-screen.
+          height: "100dvh",
+          display: "flex",
+          flexDirection: "column",
+          "--surface": chrome.surface,
+          "--capture-bg": chrome.captureBg,
+          "--text-primary": chrome.textPrimary,
+          "--text-quiet": chrome.textQuiet,
+          "--hairline": chrome.hairline,
+          "--toast-bg": chrome.toastBg,
+          "--toast-ink": chrome.toastInk,
+          background: "var(--surface)",
+          color: "var(--text-primary)",
+          // The phone column cap. On a wide viewport the wall wants the monitor's
+          // width -- the grid inside decides how many columns that buys.
+          maxWidth: wide ? "none" : 620,
+          margin: "0 auto",
+        } as React.CSSProperties
+      }
     >
       <main
         ref={mainRef}
@@ -157,8 +177,8 @@ export function App() {
             style={{
               padding: "8px 14px",
               borderRadius: 10,
-              background: TOAST_BG,
-              color: TOAST_INK,
+              background: "var(--toast-bg)",
+              color: "var(--toast-ink)",
               fontSize: 13,
               maxWidth: "min(360px, calc(100vw - 24px))",
               pointerEvents: "auto",

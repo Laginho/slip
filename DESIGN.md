@@ -56,7 +56,7 @@ A warm, quiet, paper-like surface on which coloured post-its carry all the
 expression. The chrome is nearly invisible — warm off-white, hairline dividers,
 system type — so that hue and intensity do all of the information design. Density is
 intimate (phone-first column) or abundant (desktop wall), never corporate. There is
-no dark mode and no theming; the world is this one.
+no theme toggle; the chrome follows the system colour scheme; the nine Card swatches never vary; the world is this one.
 
 **Key Characteristics:**
 - Colour = meaning: every saturated value encodes a Task Kind or Urgency step.
@@ -172,7 +172,7 @@ field box) — focus lives in the composition, not a border.
 - **Do** keep gestures and their keyboard equivalents working on any new layout.
 
 ### Don't:
-- **Don't** introduce shadows, gradients, dark mode, or new hues.
+- **Don't** introduce shadows, gradients, or new hues; the chrome follows the system colour scheme; the nine Card swatches never vary.
 - **Don't** let any notification take part in the document flow.
 - **Don't** add chrome (nav bars, tabs, settings) — sections only.
 - **Don't** touch the Overdue red or the amber's pinned lightness.

@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { TOAST_BG, TOAST_INK } from "../palette";
 
 /**
  * The five-second undo window. Not optional polish: a swipe is easy to trigger by
@@ -57,8 +56,8 @@ export function UndoToast({ label, onUndo, onExpire }: Props) {
         maxWidth: "min(360px, calc(100vw - 24px))",
         padding: "10px 14px",
         borderRadius: 10,
-        background: TOAST_BG,
-        color: TOAST_INK,
+        background: "var(--toast-bg)",
+        color: "var(--toast-ink)",
         fontSize: 14,
         // The parent layer is pointer-events:none so an absent toast never blocks the
         // content beneath; the toast itself must still be clickable while it exists.
@@ -73,7 +72,7 @@ export function UndoToast({ label, onUndo, onExpire }: Props) {
           flex: "none",
           border: "none",
           background: "none",
-          color: TOAST_INK,
+          color: "var(--toast-ink)",
           fontWeight: 700,
           textDecoration: "underline",
           padding: "4px 0",

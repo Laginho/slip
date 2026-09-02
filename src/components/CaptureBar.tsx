@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Kind } from "../store";
 import { KINDS } from "../store";
-import { CARD, CAPTURE_BG, HAIRLINE, INK_ON_LIGHT, TEXT_QUIET } from "../palette";
+import { CARD, INK_ON_LIGHT } from "../palette";
 import { inferDeadline } from "../urgency";
 
 /**
@@ -61,8 +61,8 @@ const COMPOSER: CSSProperties = {
   gap: 10,
   padding: "6px 12px",
   borderRadius: 16,
-  border: `1px solid ${HAIRLINE}`,
-  background: CAPTURE_BG,
+  border: "1px solid var(--hairline)",
+  background: "var(--capture-bg)",
 };
 
 export function CaptureBar({ wide, onCapture }: Props) {
@@ -126,12 +126,12 @@ export function CaptureBar({ wide, onCapture }: Props) {
             style={{
               flex: "none",
               fontFamily: "inherit",
-              border: `1px solid ${HAIRLINE}`,
+              border: "1px solid var(--hairline)",
               borderRadius: 999,
               padding: "8px 14px",
               fontSize: 14,
               background: selected ? CARD[k].light : "transparent",
-              color: selected ? INK_ON_LIGHT : TEXT_QUIET,
+              color: selected ? INK_ON_LIGHT : "var(--text-quiet)",
             }}
           >
             {CHIP_LABEL[k]}
@@ -174,7 +174,7 @@ export function CaptureBar({ wide, onCapture }: Props) {
           border: "none",
           outline: "none",
           background: "transparent",
-          color: dayStr === "" ? TEXT_QUIET : INK_ON_LIGHT,
+          color: dayStr === "" ? "var(--text-quiet)" : "var(--text-primary)",
           padding: "4px 0",
           textAlign: "center",
         }}
@@ -196,8 +196,8 @@ export function CaptureBar({ wide, onCapture }: Props) {
         gap: 10,
         padding: "14px 16px",
         paddingBottom: "max(14px, env(safe-area-inset-bottom))",
-        background: CAPTURE_BG,
-        borderTop: `1px solid ${HAIRLINE}`,
+        background: "var(--capture-bg)",
+        borderTop: "1px solid var(--hairline)",
       }}
     >
       {wide ? fields : <div style={COMPOSER}>{fields}</div>}
