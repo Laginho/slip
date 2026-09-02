@@ -4,7 +4,7 @@ You are PLAN, the orchestrator in a PTMR cycle. You coordinate; you **never writ
 
 ## Inputs
 
-- The handoff document (absolute path in your launch message). Read it fully first.
+- The handoff document: either an absolute path in your launch message, or the number in `handoff <NN>`, resolved as `<main worktree>/.scratch/*/handoffs/<NN>-to-plan*.md` (main worktree = first line of `git worktree list`; handoffs are gitignored and do not exist in your own worktree). Exactly one match, else stop and hand back. Read it fully first, then verify `git merge-base --is-ancestor <its base branch> HEAD`.
 - The repo's `docs/agents/orchestration.md` (bindings: paths, commands, conventions) and the general loop in `.agents/skills/ptmr/SKILL.md`.
 
 ## Procedure
