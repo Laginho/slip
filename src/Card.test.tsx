@@ -8,6 +8,7 @@ import {
   keyEvent,
   queryLabel,
   render,
+  stubDesktopMedia,
   stubNoMatchMedia,
   task,
   typeInto,
@@ -556,5 +557,147 @@ describe("visual — promoção B/A Conversa (mobile) vs A/A Parede (desktop)", 
     // Desktop keeps compact deadline "30/08" without "vence"
     expect(li.textContent).toContain("30/08");
     expect(li.textContent).not.toContain("vence 30/08");
+  });
+});
+
+describe("44px hit targets", () => {
+  const NOW = new Date(2026, 7, 22);
+
+  async function renderCard(wide = false) {
+    const card = task({ id: "t1", text: "entregar relatório" });
+    const container = await render(
+      <ul>
+        <Card
+          task={card}
+          now={NOW}
+          wide={wide}
+          onComplete={() => true}
+          onDelete={() => true}
+          onEdit={() => true}
+        />
+      </ul>,
+    );
+    return { card, container };
+  }
+
+  it("row 1 — no-match profile: each control has minWidth and minHeight of 44px", async () => {
+    const { container } = await renderCard();
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLElement;
+      expect(button).not.toBeNull();
+      expect(button.style.minWidth).toBe("44px");
+      expect(button.style.minHeight).toBe("44px");
+    }
+  });
+
+  it("row 2 — desktop profile: each control has minWidth and minHeight of 44px", async () => {
+    stubDesktopMedia();
+    const { container } = await renderCard();
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLElement;
+      expect(button).not.toBeNull();
+      expect(button.style.minWidth).toBe("44px");
+      expect(button.style.minHeight).toBe("44px");
+    }
+  });
+
+  it("row 3 — fontSize remains 18px and glyph text unchanged", async () => {
+    const { container } = await renderCard();
+    const glyphs: Record<string, string> = { Concluir: "✓", Editar: "✎", Apagar: "×" };
+    for (const [label, glyph] of Object.entries(glyphs)) {
+      const button = queryLabel(container, label) as HTMLElement;
+      expect(button).not.toBeNull();
+      expect(button.style.fontSize).toBe("18px");
+      expect(button.textContent).toBe(glyph);
+    }
+  });
+
+  it("row 4 — resting state: opacity 0 and pointerEvents none", async () => {
+    const { container } = await renderCard();
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLButtonElement;
+      expect(button).not.toBeNull();
+      expect(button.style.opacity).toBe("0");
+      expect(button.style.pointerEvents).toBe("none");
+    }
+  });
+
+  it("row 5 — focus Concluir: all three reveal with pointerEvents auto and opacity non-zero", async () => {
+    const { container } = await renderCard();
+    const concluir = queryLabel(container, "Concluir")!;
+    await act(async () => concluir.focus());
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLButtonElement;
+      expect(button.style.pointerEvents).toBe("auto");
+      expect(Number(button.style.opacity)).toBeGreaterThan(0);
+    }
+  });
+
+  it("row 6 — blur: back to pointerEvents none and opacity 0", async () => {
+    const { container } = await renderCard();
+    const concluir = queryLabel(container, "Concluir") as HTMLButtonElement;
+    await act(async () => concluir.focus());
+    await act(async () => concluir.blur());
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLButtonElement;
+      expect(button.style.opacity).toBe("0");
+      expect(button.style.pointerEvents).toBe("none");
+    }
+  });
+
+  it("row 7 — focus Concluir then activate: onComplete fires once with the Task", async () => {
+    const onComplete = vi.fn(() => true);
+    const card = task({ id: "t1", text: "entregar relatório" });
+    const container = await render(
+      <ul>
+        <Card
+          task={card}
+          now={NOW}
+          wide={false}
+          onComplete={onComplete}
+          onDelete={() => true}
+          onEdit={() => true}
+        />
+      </ul>,
+    );
+    await activate(queryLabel(container, "Concluir")!);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith(card);
+  });
+
+  it("row 8 — swipe left from trailing edge over a resting control: swipe proceeds, onDelete fires", async () => {
+    const onDelete = vi.fn(() => true);
+    const card = task({ id: "t1", text: "entregar relatório" });
+    const container = await render(
+      <ul>
+        <Card
+          task={card}
+          now={NOW}
+          wide={false}
+          onComplete={() => true}
+          onDelete={onDelete}
+          onEdit={() => true}
+        />
+      </ul>,
+    );
+    const li = container.querySelector("li")!;
+
+    const fire = (type: string, x: number) =>
+      new PointerEvent(type, { bubbles: true, clientX: x, clientY: 0, pointerId: 1 });
+    const transitionEnd = () =>
+      Object.assign(new Event("transitionend", { bubbles: true }), {
+        propertyName: "transform",
+      });
+    // Start from the trailing edge (right side), over a resting Apagar button
+    await dispatch(fire("pointerdown", 300), li);
+    await dispatch(fire("pointermove", 200), li);
+    await dispatch(fire("pointerup", 200), li);
+
+    // The Card should have exited left
+    expect(li.style.transform).toBe("translateX(-110%)");
+    // The control did not capture the pointer — the swipe proceeded
+
+    await dispatch(transitionEnd(), li);
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });
