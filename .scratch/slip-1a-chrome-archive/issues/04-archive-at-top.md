@@ -39,7 +39,7 @@ Seam: App rendered through the shared scaffolding. Allowed mocks: `matchMedia` s
 | 7 | 0 Open, 1 Done | render | only the Archive link exists in the region |
 | 8 | 1 Done 8 days ago, 1 Done today, open | render | one row visible plus "ver mais antigas"; clicking it shows both (unchanged behaviour) |
 | 9 | desktop stub, 2 Open, 1 Done | render | Archive still first child; Open list still a grid (wall unaffected) |
-| 10 | 1 Open, 1 Done | complete the Open Task | undo toast appears in the fixed layer; region children count and order unaffected by the toast |
+| 10 | 1 Open, 1 Done | complete the Open Task | undo toast appears in the fixed layer, outside the scrolling region; the Open list is gone (row 6) so the region holds only the Archive, still first |
 
 Error cases: none new.
 
@@ -52,3 +52,9 @@ Error cases: none new.
   TEST and MAKE. Correction handoff `handoffs/11-to-plan.md`, return pre-assigned to
   `12-to-master.md`. Runs in parallel with ticket 02 (disjoint files). Status stays
   `ready-for-agent`.
+- 2026-09-02 (master): cycle 06 (`traycer/dapper-rabbit`) returned 159/1: TEST and MAKE did exactly
+  what handoff 11 planned; the remaining red is row 10, whose matrix text (master's) demanded an
+  unchanged child count after completing the only Open Task, contradicting row 6. Matrix row 10
+  rewritten above. Ledger row 06 names master. `feat/04-archive-at-top` fast-forwarded to `d7f492f`.
+  Correction handoff `handoffs/16-to-plan-04.md` (TEST only, no MAKE expected), return pre-assigned
+  to `17-to-master-04.md`.
