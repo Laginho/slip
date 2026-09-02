@@ -116,16 +116,14 @@ export function App() {
         }}
       >
         <Archive tasks={tasks} now={now} open={archiveOpen} onToggle={toggleArchive} />
-        <div>
-          <TaskList
-            tasks={tasks}
-            now={now}
-            wide={wide}
-            onComplete={complete}
-            onDelete={discard}
-            onEdit={edit}
-          />
-        </div>
+        <TaskList
+          tasks={tasks}
+          now={now}
+          wide={wide}
+          onComplete={complete}
+          onDelete={discard}
+          onEdit={edit}
+        />
       </main>
 
       <CaptureBar wide={wide} onCapture={capture} />
