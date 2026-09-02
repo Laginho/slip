@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SURFACE, TEXT_PRIMARY, TOAST_BG, TOAST_INK } from "./palette";
 import { useSession } from "./useSession";
 import { Archive } from "./components/Archive";
@@ -14,6 +14,29 @@ import { UndoToast } from "./components/UndoToast";
 export function App() {
   const { tasks, pending, saveError, capture, complete, discard, edit, undo, expire } =
     useSession();
+
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+
+  const toggleArchive = () => {
+    setArchiveOpen((o) => !o);
+    if (!archiveOpen) {
+      const el = mainRef.current;
+      if (el) {
+        // jsdom has no scrollTo; guard by feature detection and fallback to scrollTop
+        const anyEl = el as unknown as { scrollTo?: (opts: { top: number }) => void };
+        if (typeof anyEl.scrollTo === "function") {
+          try {
+            anyEl.scrollTo({ top: 0 });
+          } catch {
+            el.scrollTop = 0;
+          }
+        } else {
+          el.scrollTop = 0;
+        }
+      }
+    }
+  };
 
   /**
    * The one layout breakpoint. Inline styles cannot express a media query, so the
@@ -79,6 +102,7 @@ export function App() {
       }}
     >
       <main
+        ref={mainRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -91,15 +115,17 @@ export function App() {
           gap: 12,
         }}
       >
-        <TaskList
-          tasks={tasks}
-          now={now}
-          wide={wide}
-          onComplete={complete}
-          onDelete={discard}
-          onEdit={edit}
-        />
-        <Archive tasks={tasks} now={now} />
+        <Archive tasks={tasks} now={now} open={archiveOpen} onToggle={toggleArchive} />
+        <div>
+          <TaskList
+            tasks={tasks}
+            now={now}
+            wide={wide}
+            onComplete={complete}
+            onDelete={discard}
+            onEdit={edit}
+          />
+        </div>
       </main>
 
       <CaptureBar wide={wide} onCapture={capture} />
