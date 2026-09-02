@@ -75,7 +75,7 @@ describe("Capture under a failing write", () => {
     // Everything the user typed stays put for a retry.
     expect(input.value).toBe("comprar leite");
     // The list still holds nothing, storage still holds nothing.
-    expect(container.textContent).toContain("nada por aqui");
+    expect(container.querySelector('main ul[role="list"]')).toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     // And a small persistent save error is on screen.
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
@@ -244,7 +244,8 @@ describe("storage refusing reads", () => {
       throw new Error("denied");
     });
     const container = await render(<App />);
-    expect(container.textContent).toContain("nada por aqui");
+    expect(container.querySelector("main")!.textContent).toBe("");
+    expect(container.querySelector('input[placeholder="uma tarefa..."]')).not.toBeNull();
   });
 });
 
@@ -558,5 +559,209 @@ describe("fixup 04 — compositor mobile cabe no viewport sem overflow", () => {
       return r && r !== "0px" && r !== "";
     });
     expect(hasInnerComposer && innerRounded, "desktop não deve ter compositor interno arredondado").toBe(false);
+  });
+});
+
+/**
+ * Archive at the top (ticket 04).
+ * Rows 1, 3, 5 (first-child), 6 (no copy) are RED on the base.
+ * Rows 2, 4, 7, 8, 9, 10 are behaviour guards that must stay green.
+ */
+describe("Archive at the top", () => {
+  const TODAY = new Date(2026, 8, 2); // 2026-09-02
+
+  it("row 1 — Archive is the first child of <main>; Open list follows", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const firstChild = main.children[0] as HTMLElement;
+
+    expect(firstChild.textContent).toContain("ver concluídas");
+
+    const openList = main.querySelector('ul[role="list"]');
+    expect(openList).not.toBeNull();
+    // Open list must come AFTER the archive link in DOM order
+    expect(main.contains(firstChild)).toBe(true);
+    expect(firstChild.compareDocumentPosition(openList!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("row 2 — clicking 'ver concluídas' shows Done rows; button reads 'ocultar concluídas'; still first child", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    const toggleBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    expect(toggleBtn).not.toBeNull();
+    await click(toggleBtn);
+
+    expect(main.textContent).toContain("entregar relatório");
+    expect(main.textContent).toContain("ocultar concluídas");
+    // Still the first child
+    const firstChild = main.children[0] as HTMLElement;
+    expect(firstChild.textContent).toContain("ocultar concluídas");
+  });
+
+  it("row 3 — opening the Archive scrolls <main> to top", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    // Simulate the list being scrolled down
+    Object.defineProperty(main, "scrollTop", { value: 120, writable: true, configurable: true });
+
+    const toggleBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    await click(toggleBtn);
+
+    expect(main.scrollTop).toBe(0);
+  });
+
+  it("row 4 — clicking 'ocultar concluídas' hides Done rows; button reads 'ver concluídas'", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    // Open first
+    const openBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    await click(openBtn);
+    expect(main.textContent).toContain("entregar relatório");
+
+    // Close
+    const closeBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ocultar concluídas",
+    )!;
+    await click(closeBtn);
+
+    expect(main.textContent).not.toContain("entregar relatório");
+    expect(main.textContent).toContain("ver concluídas");
+  });
+
+  it("row 5 — 2 Open, 0 Done: no 'ver concluídas' anywhere; first child is the Open list", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    expect(main.textContent).not.toContain("ver concluídas");
+    expect(main.children[0].matches('ul[role="list"]')).toBe(true);
+  });
+
+  it("row 6 — 0 Open, 0 Done: scrolling region has no text content; no empty-state copy", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    expect(main.textContent?.trim()).toBe("");
+  });
+
+  it("row 7 — 0 Open, 1 Done: only the Archive link exists in the region", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("nada por aqui");
+    // No Open list rendered
+    expect(main.querySelector('ul[role="list"]')).toBeNull();
+  });
+
+  it("row 8 — seven-day window: 1 Done 8 days ago + 1 Done today shows one row + 'ver mais antigas'", async () => {
+    const eightDaysAgo = new Date(2026, 8, 2 - 8); // 2026-08-25
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "d1", text: "relatório antigo", done: true, updatedAt: eightDaysAgo.getTime() }),
+      task({ id: "d2", text: "relatório recente", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    // Open the archive
+    const openBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    await click(openBtn);
+
+    // Only today's task visible initially
+    expect(main.textContent).toContain("relatório recente");
+    expect(main.textContent).not.toContain("relatório antigo");
+    expect(main.textContent).toContain("ver mais antigas");
+
+    // Click "ver mais antigas"
+    const allBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver mais antigas",
+    )!;
+    await click(allBtn);
+
+    expect(main.textContent).toContain("relatório antigo");
+    expect(main.textContent).toContain("relatório recente");
+  });
+
+  it("row 9 — desktop: Archive still first child; Open list still a grid", async () => {
+    const { stubDesktopMedia } = await import("./testing");
+    stubDesktopMedia();
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const firstChild = main.children[0] as HTMLElement;
+
+    expect(firstChild.textContent).toContain("ver concluídas");
+
+    const openList = main.querySelector('ul[role="list"]') as HTMLElement;
+    expect(openList).not.toBeNull();
+    expect(getComputedStyle(openList).display).toBe("grid");
+  });
+
+  it("row 10 — completing the last Open Task: undo toast lands in the fixed layer, not the region; Archive stays first", async () => {
+    vi.setSystemTime(TODAY);
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    await activate(queryLabel(container, "Concluir")!);
+
+    const toast = container.querySelector('[role="status"]');
+    expect(toast).not.toBeNull();
+    expect(main.contains(toast)).toBe(false); // the toast is in the fixed layer, outside the region
+    expect(main.querySelector('ul[role="list"]')).toBeNull(); // the last Open Task left; the Open list renders nothing
+    expect(main.children.length).toBe(1); // only the Archive remains
+    // Archive link still first
+    const firstChild = main.children[0] as HTMLElement;
+    expect(firstChild.textContent).toContain("ver concluídas");
   });
 });

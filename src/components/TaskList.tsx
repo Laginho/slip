@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Task } from "../store";
 import { openTasks } from "../store";
-import { TEXT_QUIET } from "../palette";
 import { Card } from "./Card";
 
 /**
@@ -59,9 +58,7 @@ const WALL: CSSProperties = {
 export function TaskList({ tasks, now, wide, onComplete, onDelete, onEdit }: Props) {
   const open = openTasks(tasks);
   if (open.length === 0) {
-    return (
-      <p style={{ color: TEXT_QUIET, textAlign: "center", margin: 0 }}>nada por aqui</p>
-    );
+    return null;
   }
 
   // Order within each section stays exactly as openTasks returned it.

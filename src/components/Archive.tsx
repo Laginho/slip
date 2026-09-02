@@ -21,6 +21,8 @@ import { TEXT_QUIET } from "../palette";
 type Props = {
   tasks: Task[];
   now: Date;
+  open: boolean;
+  onToggle: () => void;
 };
 
 const LIST: CSSProperties = {
@@ -41,8 +43,7 @@ const LINK: CSSProperties = {
   cursor: "pointer",
 };
 
-export function Archive({ tasks, now }: Props) {
-  const [open, setOpen] = useState(false);
+export function Archive({ tasks, now, open, onToggle }: Props) {
   const [allTime, setAllTime] = useState(false);
 
   const done = archive(tasks);
@@ -52,7 +53,7 @@ export function Archive({ tasks, now }: Props) {
   if (!open) {
     return (
       <p style={{ textAlign: "center", margin: "4px 0" }}>
-        <button type="button" style={LINK} onClick={() => setOpen(true)}>
+        <button type="button" style={LINK} onClick={onToggle}>
           ver concluídas
         </button>
       </p>
@@ -74,7 +75,7 @@ export function Archive({ tasks, now }: Props) {
   return (
     <>
       <p style={{ textAlign: "center", margin: "4px 0" }}>
-        <button type="button" style={LINK} onClick={() => setOpen(false)}>
+        <button type="button" style={LINK} onClick={onToggle}>
           ocultar concluídas
         </button>
       </p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SURFACE, TEXT_PRIMARY, TOAST_BG, TOAST_INK } from "./palette";
 import { useSession } from "./useSession";
 import { Archive } from "./components/Archive";
@@ -14,6 +14,20 @@ import { UndoToast } from "./components/UndoToast";
 export function App() {
   const { tasks, pending, saveError, capture, complete, discard, edit, undo, expire } =
     useSession();
+
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+
+  const toggleArchive = () => {
+    setArchiveOpen((o) => !o);
+    if (!archiveOpen) {
+      const el = mainRef.current;
+      if (el) {
+        if (typeof el.scrollTo === "function") el.scrollTo({ top: 0 });
+        else el.scrollTop = 0;
+      }
+    }
+  };
 
   /**
    * The one layout breakpoint. Inline styles cannot express a media query, so the
@@ -79,6 +93,7 @@ export function App() {
       }}
     >
       <main
+        ref={mainRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -91,6 +106,7 @@ export function App() {
           gap: 12,
         }}
       >
+        <Archive tasks={tasks} now={now} open={archiveOpen} onToggle={toggleArchive} />
         <TaskList
           tasks={tasks}
           now={now}
@@ -99,7 +115,6 @@ export function App() {
           onDelete={discard}
           onEdit={edit}
         />
-        <Archive tasks={tasks} now={now} />
       </main>
 
       <CaptureBar wide={wide} onCapture={capture} />
