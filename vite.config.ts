@@ -14,7 +14,7 @@ import { SURFACE } from "./src/palette.ts";
  * PWA's window chrome and splash on the old value.
  */
 const themeColor: Plugin = {
-  name: "task-tracker:theme-color",
+  name: "slip:theme-color",
   transformIndexHtml(html) {
     return html.replace("%THEME_COLOR%", SURFACE);
   },
@@ -29,12 +29,13 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
-        name: "Tasks",
-        short_name: "Tasks",
+        name: "Slip",
+        short_name: "Slip",
         lang: "pt-BR",
         start_url: "/slip/",
         scope: "/slip/",
         display: "standalone",
+        orientation: "portrait",
         background_color: SURFACE,
         theme_color: SURFACE,
         icons: [
