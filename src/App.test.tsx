@@ -75,7 +75,7 @@ describe("Capture under a failing write", () => {
     // Everything the user typed stays put for a retry.
     expect(input.value).toBe("comprar leite");
     // The list still holds nothing, storage still holds nothing.
-    expect(container.textContent).toContain("nada por aqui");
+    expect(container.querySelector('main ul[role="list"]')).toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     // And a small persistent save error is on screen.
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
@@ -244,7 +244,8 @@ describe("storage refusing reads", () => {
       throw new Error("denied");
     });
     const container = await render(<App />);
-    expect(container.textContent).toContain("nada por aqui");
+    expect(container.querySelector("main")!.textContent).toBe("");
+    expect(container.querySelector('input[placeholder="uma tarefa..."]')).not.toBeNull();
   });
 });
 
@@ -586,7 +587,7 @@ describe("Archive at the top", () => {
     expect(openList).not.toBeNull();
     // Open list must come AFTER the archive link in DOM order
     expect(main.contains(firstChild)).toBe(true);
-    expect(main.children[1].contains(openList!)).toBe(true);
+    expect(firstChild.compareDocumentPosition(openList!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("row 2 — clicking 'ver concluídas' shows Done rows; button reads 'ocultar concluídas'; still first child", async () => {
@@ -667,8 +668,7 @@ describe("Archive at the top", () => {
     const main = container.querySelector("main")!;
 
     expect(main.textContent).not.toContain("ver concluídas");
-    const firstChild = main.children[0] as HTMLElement;
-    expect(firstChild.querySelector('ul[role="list"]')).not.toBeNull();
+    expect(main.children[0].matches('ul[role="list"]')).toBe(true);
   });
 
   it("row 6 — 0 Open, 0 Done: scrolling region has no text content; no empty-state copy", async () => {
