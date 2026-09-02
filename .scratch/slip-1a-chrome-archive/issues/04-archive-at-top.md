@@ -11,16 +11,16 @@ and the fixed notification layer is untouched.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Archive section is the first child of the scrolling region; the Open list follows
-- [ ] Open/closed state is held by the screen root and passed down with a toggle callback; the link still toggles it
-- [ ] Opening the Archive sets the scrolling region's `scrollTop` to 0
-- [ ] Empty Open list renders no sections and no copy
-- [ ] With zero Done Tasks the Archive renders nothing
-- [ ] Archive window logic, "ver mais antigas" and row styling unchanged
-- [ ] Notification layer unchanged
-- [ ] Existing App and Archive-related tests green (update only those asserting the old position)
+- [x] Archive section is the first child of the scrolling region; the Open list follows
+- [x] Open/closed state is held by the screen root and passed down with a toggle callback; the link still toggles it
+- [x] Opening the Archive sets the scrolling region's `scrollTop` to 0
+- [x] Empty Open list renders no sections and no copy
+- [x] With zero Done Tasks the Archive renders nothing
+- [x] Archive window logic, "ver mais antigas" and row styling unchanged
+- [x] Notification layer unchanged
+- [x] Existing App and Archive-related tests green (update only those asserting the old position)
 
 ## Test Case Matrix
 
@@ -58,3 +58,15 @@ Error cases: none new.
   rewritten above. Ledger row 06 names master. `feat/04-archive-at-top` fast-forwarded to `d7f492f`.
   Correction handoff `handoffs/16-to-plan-04.md` (TEST only, no MAKE expected), return pre-assigned
   to `17-to-master-04.md`.
+
+**2026-09-02 (master, cycle 07 validation):** correction cycle clean. TEST rewrote row 10 exactly as
+handoff 16 planned and it was green on the base; no MAKE commit; READ gate 160/160, `tsc -b`, plus
+the planned scrollTo-guard refactor. Branch rebased onto `main` (post PR #10, stale ledger commits
+dropped): 168 tests, `tsc -b` green. Browser on the rebased branch, seed 2 Open + 1 Done: `<main>`
+children are `P` (Archive) then `UL` at 390px and 1200px (grid on the wall); Card heights 69/69
+phone and 59/59 wall, identical to the base; with 14 Open and `scrollTop` 120, opening resets to 0
+and the Done row is visible under the link; 0 Open/0 Done renders an empty region; 0 Open/1 Done
+renders only the link; completing the last Open Task leaves one child with the toast `position:
+fixed` outside `main`. Observation for a later ticket: the top-right undo toast covers the Archive
+link while it is shown. PR #12 from `feat/04-archive-at-top`. Tickets 05 and 06 unblock at merge;
+ticket 03 needs 04 in `main` and a rebase before handoff 13 launches.
