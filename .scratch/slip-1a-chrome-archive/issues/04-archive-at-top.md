@@ -42,3 +42,13 @@ Seam: App rendered through the shared scaffolding. Allowed mocks: `matchMedia` s
 | 10 | 1 Open, 1 Done | complete the Open Task | undo toast appears in the fixed layer; region children count and order unaffected by the toast |
 
 Error cases: none new.
+
+## Comments
+
+- 2026-09-02 (master): cycle 03 (`traycer/slip-1a-archive-top`) returned 158/2 red. TEST did not
+  update the two legacy `"nada por aqui"` assertions and over-specified rows 1 and 5 (single
+  `<main>` child); MAKE answered with an unplanned `<div>` around the TaskList, a layout change.
+  State lifting, Archive-first order and scroll reset are correct and stay. Ledger row 03 names
+  TEST and MAKE. Correction handoff `handoffs/11-to-plan.md`, return pre-assigned to
+  `12-to-master.md`. Runs in parallel with ticket 02 (disjoint files). Status stays
+  `ready-for-agent`.

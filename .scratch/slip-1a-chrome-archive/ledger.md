@@ -1,3 +1,11 @@
+# Ledger — slip-1a-chrome-archive
+
+Written only by master (see `docs/agents/orchestration.md`). Cycle branches carried their own
+copies until 2026-09-02; those rows are consolidated here with unique numbers.
+
 | cycle | issue | verdict | culprit | reason |
-| --- | --- | --- | --- | --- |
-| 01 | 01-rename-slip-portrait | clean | - | TEST red, MAKE green, and READ gate all passed. |
+| ----- | ----- | ------- | ------- | ------ |
+| 01 | 01-rename-slip-portrait | clean | - | TEST red, MAKE green, READ gate all passed. PR #10. |
+| 02 | 02-card-44px-controls | correction | MAKE (opencode:muse-spark-1.2-contributor-free); READ (opencode:mimo-v2.5-free) | MAKE compensated the 44px targets only vertically (`margin: "-13px 0"`) and changed the row gaps (wall 10→4, bubble 4→2, dead `bubble ? 4 : 4`); each control grew to 44px in flow. Master measured on the wall: text column 209→80px, Card heights 86→113 and 113→275. Phone bubble unaffected. READ signed off "no plan deviations". TEST rows 1–8 correct. Correction: handoff 09. |
+| 03 | 04-archive-at-top | correction | TEST (opencode:mimo-v2.5-free); MAKE (opencode:muse-spark-1.2-contributor-free) | TEST left the two legacy `"nada por aqui"` assertions (`App.test.tsx:78`, `:247`) untouched, so MAKE ended 158/2 and READ never ran; rows 1 and 5 also demand the Open list be a single `<main>` child. MAKE satisfied that with an unplanned `<div>` wrapper (layout change). Archive/TaskList/state lifting correct. PLAN: commit bodies carry a literal `\n\n`, trailers unparseable. Correction: handoff 11, return 12. |
+| 04 | 03-dark-chrome-system-scheme | correction | TEST (opencode:mimo-v2.5-free) | After two TEST attempts the legacy jsdom `getComputedStyle(form).backgroundColor` white assertion still blocked a pure `var(--capture-bg)`; MAKE attempt 2 shimmed `getComputedStyle` in `testing.tsx` (out of role, rejected, not committed). Only the two TEST commits exist. Matrix rows 3, 6, 8, 9, 11 of the ticket were never translated. Correction: handoff 13, return 14. |
