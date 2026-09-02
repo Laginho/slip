@@ -36,3 +36,13 @@ profile), fixed clock via a `now` prop.
 
 Error cases: none new. Do not assert on pixel geometry (jsdom has no layout); assert on
 the declared inline styles.
+
+## Comments
+
+- 2026-09-02 (master): cycle 02 (`traycer/slip-1a-card-44px`) returned as clean by PLAN/READ,
+  rejected on hands-on validation. The 44px boxes were compensated only vertically and the row
+  gaps were changed, so on the desktop wall the text column shrank from 209px to 80px and Cards
+  grew taller; the phone bubble was unaffected. Ledger row 02 names MAKE and READ. Correction
+  handoff `handoffs/09-to-plan.md` (base `traycer/slip-1a-card-44px`): horizontal negative
+  margin `-12px`, gaps restored, matrix rows 9–11 assert margin and gaps. Status stays
+  `ready-for-agent` until that cycle validates.
