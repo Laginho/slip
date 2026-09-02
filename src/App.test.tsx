@@ -9,6 +9,7 @@ import {
   keyEvent,
   queryLabel,
   render,
+  stubDarkDesktopMedia,
   stubDarkMedia,
   stubMediaWithChangeListener,
   stubNoMatchMedia,
@@ -452,8 +453,8 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
     // CaptureBar: faixa branca pinada + compositor interno arredondado com hairline
     const form = container.querySelector("form") as HTMLElement;
     expect(form).not.toBeNull();
-    // Outer strip is white pinned — form background still CAPTURE_BG
-    expect(getComputedStyle(form).backgroundColor, "faixa branca").toMatch(/255, 255, 255|#fff/i);
+    // Outer strip is white pinned — form background is the capture token
+    expect(form.style.background, "faixa da captura").toBe("var(--capture-bg)");
 
     // Inner composer: rounded + hairline inside the strip (not the form borderTop)
     // Future mobile wraps chips+inputs in a rounded div; current flat has none -> RED
@@ -933,5 +934,64 @@ describe("dark chrome", () => {
 
     // Now dark
     expect(root2.style.getPropertyValue("--surface")).toBe(CHROME.dark.surface);
+  });
+
+  it("9 — overdue on dark: atrasado label is OVERDUE_RED, Card li is INK_ON_DARK, background is CARD[kind].dark", async () => {
+    stubDarkMedia();
+    const palette = await import("./palette");
+    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
+    const CARD = (palette as Record<string, unknown>).CARD as Record<string, Record<string, string>>;
+    const OVERDUE_RED = (palette as Record<string, unknown>).OVERDUE_RED as string;
+    const INK_ON_DARK = (palette as Record<string, unknown>).INK_ON_DARK as string;
+
+    /** jsdom normalises hex to rgb(); compare via normalised form. */
+    function toRgb(hex: string): string {
+      const h = hex.replace("#", "");
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Fixed now: 2026-09-02. Deadline 2 days before = 2026-08-31 → 2 days overdue.
+    vi.setSystemTime(new Date(2026, 8, 2));
+    const overdueTask = task({ id: "dark-overdue", text: "entregar relatório", deadline: "2026-08-31" });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([overdueTask]));
+    const container = await render(<App />);
+    const li = container.querySelector("li") as HTMLElement;
+    expect(li).not.toBeNull();
+
+    // Card background must be the dark step for its kind (work → CARD.work.dark)
+    expect(li.style.background).toBe(toRgb(CARD.work.dark));
+    // Card ink must be INK_ON_DARK (urgency is "dark" → light ink)
+    expect(li.style.color).toBe(toRgb(INK_ON_DARK));
+
+    // The "atrasado" label must use OVERDUE_RED
+    // The overdue label is the innermost span with fontWeight:700 (the outer text
+    // span has no colour, so selecting by textContent matches the parent).
+    const atrasado = li.querySelector("span[style*='font-weight: 700']") as HTMLElement | null;
+    expect(atrasado, "atrasado span").not.toBeNull();
+    expect(atrasado!.textContent).toContain("atrasado");
+    expect(atrasado!.style.color).toBe(toRgb(OVERDUE_RED));
+  });
+
+  it("10 — dark + desktop: grid display and root --surface is CHROME.dark.surface", async () => {
+    stubDarkDesktopMedia();
+    const palette = await import("./palette");
+    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([
+      task({ id: "dark-d1", text: "estudar para prova" }),
+      task({ id: "dark-d2", text: "comprar leite" }),
+    ]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+
+    // Root must be dark
+    expect(root.style.getPropertyValue("--surface")).toBe(CHROME.dark.surface);
+
+    // Open list must be grid (same assertion ticket 04 row 9 uses)
+    const lists = [...container.querySelectorAll('ul[role="list"]')] as HTMLElement[];
+    expect(lists.length).toBeGreaterThan(0);
+    expect(getComputedStyle(lists[0]).display).toBe("grid");
   });
 });
