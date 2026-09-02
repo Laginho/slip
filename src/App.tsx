@@ -23,17 +23,8 @@ export function App() {
     if (!archiveOpen) {
       const el = mainRef.current;
       if (el) {
-        // jsdom has no scrollTo; guard by feature detection and fallback to scrollTop
-        const anyEl = el as unknown as { scrollTo?: (opts: { top: number }) => void };
-        if (typeof anyEl.scrollTo === "function") {
-          try {
-            anyEl.scrollTo({ top: 0 });
-          } catch {
-            el.scrollTop = 0;
-          }
-        } else {
-          el.scrollTop = 0;
-        }
+        if (typeof el.scrollTo === "function") el.scrollTo({ top: 0 });
+        else el.scrollTop = 0;
       }
     }
   };
