@@ -309,7 +309,7 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    margin: "-13px 0",
+    margin: "-13px -12px",
     // The browser's default focus outline stays; hiding it would undo the reveal.
     cursor: revealActions ? "pointer" : "default",
   } as const;
@@ -388,7 +388,7 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
         display: "flex",
         flexDirection: bubble ? "column" : "row",
         alignItems: bubble ? "flex-start" : "baseline",
-        gap: bubble ? 4 : 4,
+        gap: bubble ? 4 : 10,
         transform,
         transition,
         // Let the list scroll vertically while horizontal drags stay ours.
@@ -459,7 +459,7 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
       {/* Native controls for all three actions, always rendered -- keyboard and
           touch-keyboard users cannot be gated behind a fine-pointer media query.
           Hover or focus-within reveals them; gestures remain the shortcuts. */}
-      {!editing && (bubble ? <div style={{ display: "flex", gap: 2, alignSelf: "flex-end" }}>{actions}</div> : actions)}
+      {!editing && (bubble ? <div style={{ display: "flex", gap: 4, alignSelf: "flex-end" }}>{actions}</div> : actions)}
     </li>
   );
 }
