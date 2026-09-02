@@ -744,7 +744,7 @@ describe("Archive at the top", () => {
     expect(getComputedStyle(openList).display).toBe("grid");
   });
 
-  it("row 10 — completing an Open Task shows undo toast in the fixed layer; region children unaffected", async () => {
+  it("row 10 — completing the last Open Task: undo toast lands in the fixed layer, not the region; Archive stays first", async () => {
     vi.setSystemTime(TODAY);
     seedStorage([
       task({ id: "o1", text: "comprar leite" }),
@@ -752,13 +752,14 @@ describe("Archive at the top", () => {
     ]);
     const container = await render(<App />);
     const main = container.querySelector("main")!;
-    const childrenBefore = main.children.length;
 
     await activate(queryLabel(container, "Concluir")!);
 
     const toast = container.querySelector('[role="status"]');
     expect(toast).not.toBeNull();
-    expect(main.children.length).toBe(childrenBefore);
+    expect(main.contains(toast)).toBe(false); // the toast is in the fixed layer, outside the region
+    expect(main.querySelector('ul[role="list"]')).toBeNull(); // the last Open Task left; the Open list renders nothing
+    expect(main.children.length).toBe(1); // only the Archive remains
     // Archive link still first
     const firstChild = main.children[0] as HTMLElement;
     expect(firstChild.textContent).toContain("ver concluídas");
