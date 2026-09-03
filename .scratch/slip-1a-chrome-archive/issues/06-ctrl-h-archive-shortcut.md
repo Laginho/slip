@@ -8,15 +8,15 @@ Archive state with the link, so link and shortcut never disagree.
 
 **Blocked by:** 04 (Archive state on the screen root).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] A window-level keydown listener owned by the screen root handles `Ctrl+H` (`ctrlKey && key === "h"`, case-insensitive), calls `preventDefault`, and toggles the Archive
-- [ ] Opening via the shortcut sets the region's `scrollTop` to 0; closing restores the hidden-link position (from ticket 05 when present; otherwise no-op)
-- [ ] Ignored when the event target is a Card's edit field
-- [ ] Not ignored when the capture bar's text input has focus
-- [ ] Ignored when there is no Archive to show (zero Done Tasks)
-- [ ] Registered regardless of pointer profile; removed on unmount
-- [ ] Plain `H`, `Alt+H`, `Meta+H` and `Ctrl+Shift+H` do nothing
+- [x] A window-level keydown listener owned by the screen root handles `Ctrl+H` (`ctrlKey && key === "h"`, case-insensitive), calls `preventDefault`, and toggles the Archive
+- [x] Opening via the shortcut sets the region's `scrollTop` to 0; closing restores the hidden-link position (from ticket 05 when present; otherwise no-op)
+- [x] Ignored when the event target is a Card's edit field
+- [x] Not ignored when the capture bar's text input has focus
+- [x] Ignored when there is no Archive to show (zero Done Tasks)
+- [x] Registered regardless of pointer profile; removed on unmount
+- [x] Plain `H`, `Alt+H`, `Meta+H` and `Ctrl+Shift+H` do nothing
 
 ## Test Case Matrix
 
