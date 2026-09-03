@@ -12,6 +12,7 @@ import {
   render,
   stubDarkDesktopMedia,
   stubDarkMedia,
+  stubDesktopMedia,
   stubMediaWithChangeListener,
   stubNoMatchMedia,
   stubScrollTop,
@@ -1218,5 +1219,215 @@ describe("dark chrome", () => {
     const lists = [...container.querySelectorAll('ul[role="list"]')] as HTMLElement[];
     expect(lists.length).toBeGreaterThan(0);
     expect(getComputedStyle(lists[0]).display).toBe("grid");
+  });
+});
+
+/**
+ * Ctrl+H toggles the Archive (ticket 06).
+ * The shortcut only flips the archiveOpen state; scroll is handled by the
+ * existing effect from ticket 05. Rows 1, 2, 4, 6, 9, 11 are RED on the
+ * base (no keyboard handler in App.tsx). Rows 3, 5, 7, 8, 10 are GREEN
+ * already (they assert nothing happens).
+ */
+describe("Ctrl+H toggles the Archive", () => {
+  const TODAY = new Date(2026, 8, 2); // 2026-09-02
+
+  let restoreScrollTop: () => void;
+
+  beforeEach(() => {
+    vi.setSystemTime(TODAY);
+    stubDesktopMedia();
+    restoreScrollTop = stubScrollTop();
+  });
+
+  afterEach(() => {
+    restoreScrollTop();
+  });
+
+  /** Common seed: 2 Open + 1 Done, enough to exercise the archive. */
+  function seedTwoOpenOneDone(): void {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+  }
+
+  it("row 1 — 2 Open, 1 Done, closed: Ctrl+H opens archive; Done text present; scrollTop 0; defaultPrevented", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+    region.scrollTop = ARCHIVE_HIDDEN_OFFSET; // starts hidden
+
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, window);
+
+    expect(main.textContent).toContain("ocultar concluídas");
+    expect(main.textContent).toContain("entregar relatório");
+    expect(region.scrollTop).toBe(0);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("row 2 — open: Ctrl+H closes archive; Done text gone; scrollTop ARCHIVE_HIDDEN_OFFSET", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    // Open first
+    region.scrollTop = 0;
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, window);
+
+    // Archive is open; close it
+    const event2 = keyEvent("H", { ctrlKey: true });
+    await dispatch(event2, window);
+
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("entregar relatório");
+    expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+  });
+
+  it("row 3 — Ctrl+Shift+H: still closed; defaultPrevented false", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    const event = keyEvent("H", { ctrlKey: true, shiftKey: true });
+    await dispatch(event, window);
+
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("entregar relatório");
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("row 4 — lowercase h (Ctrl+h) opens archive", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+    region.scrollTop = ARCHIVE_HIDDEN_OFFSET;
+
+    const event = keyEvent("h", { ctrlKey: true });
+    await dispatch(event, window);
+
+    expect(main.textContent).toContain("ocultar concluídas");
+    expect(region.scrollTop).toBe(0);
+  });
+
+  it("row 5 — plain h, Alt+H, Meta+H: nothing happens; none defaultPrevented", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    for (const init of [{ key: "h" }, { altKey: true, key: "H" }, { metaKey: true, key: "H" }]) {
+      const event = keyEvent(init.key, init);
+      await dispatch(event, window);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("entregar relatório");
+  });
+
+  it("row 6 — Ctrl+H on capture input: opens; input value preserved", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+    region.scrollTop = ARCHIVE_HIDDEN_OFFSET;
+
+    const input = container.querySelector<HTMLInputElement>("input")!;
+    typeInto(input, "abc");
+    input.focus();
+
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, input);
+
+    expect(main.textContent).toContain("ocultar concluídas");
+    expect(input.value).toBe("abc");
+  });
+
+  it("row 7 — Ctrl+H on Card editor: still closed; editor stays; defaultPrevented false", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLInputElement>("input")!;
+
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, editor);
+
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("entregar relatório");
+    expect(container.querySelector("input")).not.toBeNull();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("row 8 — 2 Open, 0 Done: Ctrl+H does nothing; defaultPrevented false; no throw", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, window);
+
+    expect(main.textContent).not.toContain("concluídas");
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("row 9 — desktop + Ctrl+H: opens archive (same as row 1 but with desktop media)", async () => {
+    stubDesktopMedia();
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+    region.scrollTop = ARCHIVE_HIDDEN_OFFSET;
+
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, window);
+
+    expect(main.textContent).toContain("ocultar concluídas");
+    expect(region.scrollTop).toBe(0);
+  });
+
+  it("row 10 — render then unmount: Ctrl+H does not throw; no console.error", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    seedTwoOpenOneDone();
+    await render(<App />);
+
+    await unmount();
+
+    // Dispatch after unmount must not throw or warn about state updates
+    const event = keyEvent("H", { ctrlKey: true });
+    expect(() => dispatch(event, window)).not.toThrow();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("row 11 — open via click then Ctrl+H closes: shared state; scrollTop ARCHIVE_HIDDEN_OFFSET", async () => {
+    seedTwoOpenOneDone();
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    // Open by clicking the link
+    const toggleBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    await click(toggleBtn);
+    expect(main.textContent).toContain("ocultar concluídas");
+
+    // Close via Ctrl+H
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, window);
+
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("entregar relatório");
+    expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
   });
 });

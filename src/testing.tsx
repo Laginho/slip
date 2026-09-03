@@ -157,8 +157,8 @@ export async function activate(element: HTMLElement): Promise<void> {
 }
 
 /** A bubbling keydown, for driving React onKeyDown handlers. */
-export function keyEvent(key: string): KeyboardEvent {
-  return new KeyboardEvent("keydown", { key, bubbles: true });
+export function keyEvent(key: string, init?: Partial<KeyboardEventInit>): KeyboardEvent {
+  return new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
 }
 
 export async function dispatch(event: Event, target: EventTarget): Promise<void> {
