@@ -26,7 +26,26 @@ Context: ticket `07-validate-installs.md` (Comments);
 
 **Status:** ready-for-agent
 
-- [ ] Decidido o alcance (evento online vs Background Sync no SW)
+- [x] Decidido o alcance (evento online vs Background Sync no SW) — candidato 1, ver Comments
 - [ ] Implementado com teste cobrindo o cenário do ticket 07
 - [ ] Validado hands-on: mudança offline no celular sobe sem reabrir o app (ou a
       limitação residual fica documentada aqui)
+
+## Comments
+
+### Decisão de alcance 2026-09-03 (master)
+
+**Candidato 1 neste ciclo; candidato 2 fora de escopo.** Sync em `online` e em
+`visibilitychange` → `visible`, reaproveitando o `roundTrip()` de `useSession.ts` (o timer do
+debounce pendente é absorvido — a lista mais recente é o que sobe). Cobre: app aberto ou em
+segundo plano ainda vivo quando a rede volta (as mudanças offline sobem); app voltando ao
+primeiro plano (as mudanças do outro aparelho descem — é isto que faz o PC ver o celular sem
+reabrir nada).
+
+Não cobre: processo do app morto pelo SO enquanto offline. Background Sync no SW resolveria
+esse caso, mas só em Chromium, exige SW customizado (`injectManifest`), uma segunda cópia da
+regra de merge (ou um guard de `updatedAt` no Postgres) e não é testável em unidade — exatamente
+o código "parece certo, está errado" que a spec manda não delegar. Vira ticket novo só se a
+validação hands-on mostrar que a janela residual incomoda no uso real.
+
+Ciclo PTMR: handoff `01-to-plan-09.md` (retorno `02`), base `feat/09-background-sync`.
