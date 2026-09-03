@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { CHROME } from "./palette";
 import { useSession } from "./useSession";
-import { Archive } from "./components/Archive";
+import { archive } from "./store";
+import { ARCHIVE_ROW_HEIGHT, Archive } from "./components/Archive";
 import { CaptureBar } from "./components/CaptureBar";
 import { TaskList } from "./components/TaskList";
 import { UndoToast } from "./components/UndoToast";
@@ -9,25 +10,34 @@ import { UndoToast } from "./components/UndoToast";
 /**
  * The single screen. One scrolling list, one input pinned to the bottom.
  * No router, no tabs, no nav bar: the Archive (issue 08) is a section, not a route.
+ * The scrolling region and the content are two elements: the region scrolls while
+ * the content declares the extra height that keeps the list pullable.
  */
+
+export const ARCHIVE_HIDDEN_OFFSET = 16 + ARCHIVE_ROW_HEIGHT;
 
 export function App() {
   const { tasks, pending, saveError, capture, complete, discard, edit, undo, expire } =
     useSession();
 
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const mainRef = useRef<HTMLElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
 
-  const toggleArchive = () => {
-    setArchiveOpen((o) => !o);
-    if (!archiveOpen) {
-      const el = mainRef.current;
-      if (el) {
-        if (typeof el.scrollTo === "function") el.scrollTo({ top: 0 });
-        else el.scrollTop = 0;
-      }
-    }
+  const hasArchive = archive(tasks).length > 0;
+
+  const toggleArchive = () => setArchiveOpen((o) => !o);
+
+  const scrollRegionTo = (top: number) => {
+    const el = regionRef.current;
+    if (!el) return;
+    if (typeof el.scrollTo === "function") el.scrollTo({ top });
+    else el.scrollTop = top;
   };
+
+  useEffect(() => {
+    if (!hasArchive) return;
+    scrollRegionTo(archiveOpen ? 0 : ARCHIVE_HIDDEN_OFFSET);
+  }, [archiveOpen]);
 
   /**
    * The one layout breakpoint. Inline styles cannot express a media query, so the
@@ -112,30 +122,37 @@ export function App() {
         } as React.CSSProperties
       }
     >
-      <main
-        ref={mainRef}
+      <div
+        ref={regionRef}
         style={{
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
           overflowX: "hidden",
-          padding: "16px 16px 6px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-start",
-          gap: 12,
+          overscrollBehavior: "contain",
         }}
       >
-        <Archive tasks={tasks} now={now} open={archiveOpen} onToggle={toggleArchive} />
-        <TaskList
-          tasks={tasks}
-          now={now}
-          wide={wide}
-          onComplete={complete}
-          onDelete={discard}
-          onEdit={edit}
-        />
-      </main>
+        <main
+          style={{
+            padding: "16px 16px 6px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            boxSizing: "border-box",
+            minHeight: hasArchive ? `calc(100% + ${ARCHIVE_HIDDEN_OFFSET}px)` : undefined,
+          }}
+        >
+          <Archive tasks={tasks} now={now} open={archiveOpen} onToggle={toggleArchive} />
+          <TaskList
+            tasks={tasks}
+            now={now}
+            wide={wide}
+            onComplete={complete}
+            onDelete={discard}
+            onEdit={edit}
+          />
+        </main>
+      </div>
 
       <CaptureBar wide={wide} onCapture={capture} />
 

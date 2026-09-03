@@ -24,6 +24,16 @@ type Props = {
   onToggle: () => void;
 };
 
+export const ARCHIVE_ROW_HEIGHT = 44;
+
+const LINK_ROW: CSSProperties = {
+  height: ARCHIVE_ROW_HEIGHT,
+  margin: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
 const LIST: CSSProperties = {
   margin: 0,
   padding: 0,
@@ -51,7 +61,7 @@ export function Archive({ tasks, now, open, onToggle }: Props) {
 
   if (!open) {
     return (
-      <p style={{ textAlign: "center", margin: "4px 0" }}>
+      <p style={LINK_ROW}>
         <button type="button" style={LINK} onClick={onToggle}>
           ver concluídas
         </button>
@@ -73,7 +83,7 @@ export function Archive({ tasks, now, open, onToggle }: Props) {
 
   return (
     <>
-      <p style={{ textAlign: "center", margin: "4px 0" }}>
+      <p style={LINK_ROW}>
         <button type="button" style={LINK} onClick={onToggle}>
           ocultar concluídas
         </button>
