@@ -1,6 +1,6 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, unmount } from "./testing";
+import { dispatch, render, task, unmount } from "./testing";
 import type { Task } from "./store";
 
 vi.mock("./sync", async (importOriginal) => {
@@ -321,5 +321,161 @@ describe("Write-failure boundary at the seam", () => {
     expect(latestResult!.tasks).toBe(tasksBefore);
     expect(latestResult!.saveError).toBe(true);
     expect(latestResult!.pending).toBeNull();
+  });
+});
+
+describe("Sync on reconnect and on return to the foreground", () => {
+  const setVisibility = (value: "visible" | "hidden") =>
+    Object.defineProperty(document, "visibilityState", { value, configurable: true });
+
+  afterEach(() => {
+    setVisibility("visible");
+  });
+
+  it("syncs on the online event with the current list", async () => {
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    await dispatch(new Event("online"), window);
+
+    expect(syncFn).toHaveBeenCalledTimes(1);
+    expect(syncFn).toHaveBeenCalledWith(latestResult!.tasks);
+  });
+
+  it("ticket 07: pushes offline changes when the network returns", async () => {
+    vi.useFakeTimers();
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    // The write never reached the server (offline): the debounced sync runs and, being
+    // unable to publish, returns the local list.
+    await act(async () => {
+      latestResult!.capture("comprar pão", "chore", null);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    syncFn.mockClear();
+
+    // Connectivity returns while the app is open: the queued offline write goes up.
+    await dispatch(new Event("online"), window);
+
+    expect(syncFn).toHaveBeenCalledTimes(1);
+    const arg = syncFn.mock.calls[0][0] as Task[];
+    expect(arg).toHaveLength(1);
+    expect(arg[0].text).toBe("comprar pão");
+
+    // No further timer repeats the round trip.
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(syncFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("folds the pending debounce into the online sync", async () => {
+    vi.useFakeTimers();
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    await act(async () => {
+      latestResult!.capture("x", "work", null);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    // The debounce is still pending; the online event must absorb it and fire now.
+    await dispatch(new Event("online"), window);
+
+    expect(syncFn).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(syncFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("syncs when the app returns to the foreground (visible)", async () => {
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    setVisibility("visible");
+    await dispatch(new Event("visibilitychange"), document);
+
+    expect(syncFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not sync when the app goes to the background (hidden)", async () => {
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    setVisibility("hidden");
+    await dispatch(new Event("visibilitychange"), document);
+
+    expect(syncFn).not.toHaveBeenCalled();
+  });
+
+  it("does not over-match unrelated events (offline, focus)", async () => {
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    await dispatch(new Event("offline"), window);
+    await dispatch(new Event("focus"), window);
+
+    expect(syncFn).not.toHaveBeenCalled();
+  });
+
+  it("settle path: a sync landing on online is adopted and persisted", async () => {
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+
+    await render(<Probe />);
+    syncFn.mockClear();
+
+    // The next round trip (triggered by online) brings the other device's write down.
+    syncFn.mockResolvedValue([
+      task({ id: "pc-1", text: "feito no PC", kind: "work" }),
+    ]);
+
+    await dispatch(new Event("online"), window);
+
+    expect(latestResult!.tasks.map((t) => t.text)).toContain("feito no PC");
+    expect(localStorage.getItem("tasks/v1")).toContain("feito no PC");
+  });
+
+  it("does not sync after unmount, and no settle error is raised", async () => {
+    const syncFn = freshSyncMock();
+    syncFn.mockImplementation(async (local: Task[]) => local);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await render(<Probe />);
+    syncFn.mockClear();
+    await unmount();
+
+    await dispatch(new Event("online"), window);
+    setVisibility("visible");
+    await dispatch(new Event("visibilitychange"), document);
+
+    expect(syncFn).not.toHaveBeenCalled();
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });
