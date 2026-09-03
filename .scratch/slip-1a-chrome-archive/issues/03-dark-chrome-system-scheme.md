@@ -7,9 +7,9 @@ and the Overdue red ("post-its on a dark wall"). There is no toggle and no setti
 screen. The palette module stays the only place with a hex literal, and the installed
 window frame follows the page colour in both schemes.
 
-**Blocked by:** None (can start immediately).
+**Blocked by:** 01 (index.html, vite config, DESIGN.md) and 04 (App.tsx, Archive, TaskList, App.test.tsx). Integration blocking: this ticket edits every file those two touch, so it lands last.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [ ] Chrome tokens (surface, capture ground, primary text, quiet text, hairline, toast ground, toast ink) exist as a light set and a dark set in the palette; Card swatches, inks and Overdue red remain single frozen values
 - [ ] Dark values meet the spec constraints: warm near-black surface; primary and quiet text ≥ 4.5:1 on it; hairline visible; toast inverted (ivory ground, charcoal ink). Values documented in the palette with the same commentary discipline
@@ -43,3 +43,12 @@ seeded with Tasks, fixed clock.
 
 Error cases: `matchMedia` missing (the no-match stub) must render the light set, never
 throw.
+
+## Comments
+
+- 2026-09-02 (master): cycle 04 (`traycer/slip-1a-dark-chrome`) returned with TEST commits only
+  (`13843e9`, `ddc7d37`). MAKE never committed: the legacy "visual promoção 04" assertion reads
+  the browser-computed capture background and jsdom cannot resolve `var(--capture-bg)`. Ledger
+  row 04 names TEST. Blocked by 01 and 04 from now on (shared files, see `git merge-tree`).
+  Correction handoff `handoffs/13-to-plan-03.md`, to launch only after 01 and 04 are in `main`
+  and this branch is rebased. Status stays `ready-for-agent`.

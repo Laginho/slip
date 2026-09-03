@@ -9,6 +9,9 @@ import {
   keyEvent,
   queryLabel,
   render,
+  stubDarkDesktopMedia,
+  stubDarkMedia,
+  stubMediaWithChangeListener,
   stubNoMatchMedia,
   task,
   typeInto,
@@ -419,7 +422,11 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
 
   function hasHairline(style: CSSStyleDeclaration | string): boolean {
     const s = typeof style === "string" ? style : (style.borderTop || style.border || "");
+    // After dark chrome, CaptureBar uses var(--hairline) inline. Before that,
+    // the literal #e2e0dc appears. Accept both so the test stays green across
+    // the cycle without compelling production to hardcode a fallback.
     return (
+      s.includes("var(--hairline)") ||
       s.includes("#e2e0dc") ||
       s.includes("e2e0dc") ||
       s.includes("226, 224, 220") ||
@@ -446,8 +453,8 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
     // CaptureBar: faixa branca pinada + compositor interno arredondado com hairline
     const form = container.querySelector("form") as HTMLElement;
     expect(form).not.toBeNull();
-    // Outer strip is white pinned — form background still CAPTURE_BG
-    expect(getComputedStyle(form).backgroundColor, "faixa branca").toMatch(/255, 255, 255|#fff/i);
+    // Outer strip is white pinned — form background is the capture token
+    expect(form.style.background, "faixa da captura").toBe("var(--capture-bg)");
 
     // Inner composer: rounded + hairline inside the strip (not the form borderTop)
     // Future mobile wraps chips+inputs in a rounded div; current flat has none -> RED
@@ -763,5 +770,227 @@ describe("Archive at the top", () => {
     // Archive link still first
     const firstChild = main.children[0] as HTMLElement;
     expect(firstChild.textContent).toContain("ver concluídas");
+  });
+});
+
+/**
+ * DARK CHROME — matrix rows 1–7.
+ * The root <div> must set CSS custom properties (--surface, --text-primary, etc.)
+ * from the palette, and every component must consume them via var(--…) instead of
+ * importing chrome constants directly. Row 1 asserts the variables exist on the
+ * root; rows 2–6 assert components use the vars; row 7 asserts the dark state
+ * flips live when the media query changes.
+ *
+ * All rows are red on the base: App.tsx has no dark state and no CSS variables,
+ * components import constants directly. Rows 2–7 additionally need the palette
+ * CHROME object which does not exist yet.
+ */
+describe("dark chrome", () => {
+  const SAMPLE_TASK = task({ id: "dark-1", text: "estudar para prova" });
+
+  it("1 — root div sets CSS custom properties from palette", async () => {
+    stubNoMatchMedia();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([SAMPLE_TASK]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root).not.toBeNull();
+
+    // The root must declare these custom properties. On the base the root uses
+    // `background: SURFACE` directly and sets no variables — this fails.
+    const style = root.style;
+    expect(style.getPropertyValue("--surface"), "--surface").not.toBe("");
+    expect(style.getPropertyValue("--text-primary"), "--text-primary").not.toBe("");
+    expect(style.getPropertyValue("--text-quiet"), "--text-quiet").not.toBe("");
+    expect(style.getPropertyValue("--hairline"), "--hairline").not.toBe("");
+    expect(style.getPropertyValue("--capture-bg"), "--capture-bg").not.toBe("");
+    expect(style.getPropertyValue("--toast-bg"), "--toast-bg").not.toBe("");
+    expect(style.getPropertyValue("--toast-ink"), "--toast-ink").not.toBe("");
+  });
+
+  it("2 — light mode: CSS variables match the palette light values", async () => {
+    stubNoMatchMedia();
+    const palette = await import("./palette");
+    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([SAMPLE_TASK]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+    const style = root.style;
+
+    expect(style.getPropertyValue("--surface")).toBe(CHROME.light.surface);
+    expect(style.getPropertyValue("--text-primary")).toBe(CHROME.light.textPrimary);
+    expect(style.getPropertyValue("--text-quiet")).toBe(CHROME.light.textQuiet);
+    expect(style.getPropertyValue("--hairline")).toBe(CHROME.light.hairline);
+    expect(style.getPropertyValue("--capture-bg")).toBe(CHROME.light.captureBg);
+    expect(style.getPropertyValue("--toast-bg")).toBe(CHROME.light.toastBg);
+    expect(style.getPropertyValue("--toast-ink")).toBe(CHROME.light.toastInk);
+  });
+
+  it("3 — dark mode: CSS variables match the palette dark values", async () => {
+    stubDarkMedia();
+    const palette = await import("./palette");
+    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([SAMPLE_TASK]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+    const style = root.style;
+
+    expect(style.getPropertyValue("--surface")).toBe(CHROME.dark.surface);
+    expect(style.getPropertyValue("--text-primary")).toBe(CHROME.dark.textPrimary);
+    expect(style.getPropertyValue("--text-quiet")).toBe(CHROME.dark.textQuiet);
+    expect(style.getPropertyValue("--hairline")).toBe(CHROME.dark.hairline);
+    expect(style.getPropertyValue("--capture-bg")).toBe(CHROME.dark.captureBg);
+    expect(style.getPropertyValue("--toast-bg")).toBe(CHROME.dark.toastBg);
+    expect(style.getPropertyValue("--toast-ink")).toBe(CHROME.dark.toastInk);
+  });
+
+  it("4 — root background/color use var(--surface) / var(--text-primary), not literals", async () => {
+    stubNoMatchMedia();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([SAMPLE_TASK]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+
+    // On the base, root uses `background: SURFACE` (the literal). It must be var(--surface).
+    expect(root.style.background).toContain("var(--surface)");
+    expect(root.style.color).toContain("var(--text-primary)");
+  });
+
+  it("5 — save-error banner uses var(--toast-bg) / var(--toast-ink)", async () => {
+    stubNoMatchMedia();
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    const container = await render(<App />);
+
+    const input = container.querySelector<HTMLInputElement>('input[placeholder="uma tarefa..."]')!;
+    typeInto(input, "comprar leite");
+    await dispatch(
+      new Event("submit", { bubbles: true, cancelable: true }),
+      container.querySelector("form")!,
+    );
+
+    const banner = container.querySelector<HTMLElement>('[role="alert"]');
+    expect(banner).not.toBeNull();
+    // On the base the banner uses TOAST_BG/TOAST_INK literals; it must use var(--…)
+    expect(banner!.style.background).toContain("var(--toast-bg)");
+    expect(banner!.style.color).toContain("var(--toast-ink)");
+  });
+
+  it("6 — CaptureBar uses var(--capture-bg) / var(--hairline), not imported constants", async () => {
+    stubNoMatchMedia();
+    localStorage.clear();
+    const container = await render(<App />);
+
+    const form = container.querySelector("form") as HTMLElement;
+    expect(form).not.toBeNull();
+    // On the base, CaptureBar imports CAPTURE_BG and HAIRLINE directly; it must use var(--…)
+    expect(form.style.background).toContain("var(--capture-bg)");
+    expect(form.style.borderTop).toContain("var(--hairline)");
+  });
+
+  it("7 — UndoToast uses var(--toast-bg) / var(--toast-ink)", async () => {
+    stubNoMatchMedia();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([SAMPLE_TASK]));
+    const container = await render(<App />);
+
+    await activate(queryLabel(container, "Concluir")!);
+    const toast = container.querySelector<HTMLElement>('[role="status"]');
+    expect(toast).not.toBeNull();
+    // On the base, UndoToast imports TOAST_BG/TOAST_INK directly; it must use var(--…)
+    expect(toast!.style.background).toContain("var(--toast-bg)");
+    expect(toast!.style.color).toContain("var(--toast-ink)");
+  });
+
+  it("8 — dark state flips live when prefers-color-scheme changes", async () => {
+    stubNoMatchMedia();
+    const palette = await import("./palette");
+    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([SAMPLE_TASK]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+
+    // Starts in light mode
+    expect(root.style.getPropertyValue("--surface")).toBe(CHROME.light.surface);
+
+    // Re-render with a stub that starts NOT dark (predicate false) and records
+    // the addEventListener("change", ...) call so we can fire it later.
+    await unmount();
+    const rec = stubMediaWithChangeListener(
+      (q) => q === "(min-width: 900px)", // dark is NOT matched initially
+    );
+    const container2 = await render(<App />);
+    const root2 = container2.firstElementChild as HTMLElement;
+
+    // Still light after re-render
+    expect(root2.style.getPropertyValue("--surface")).toBe(CHROME.light.surface);
+
+    // Fire the change listener to simulate prefers-color-scheme flipping to dark
+    const darkListeners = rec.listeners.get("(prefers-color-scheme: dark)") ?? [];
+    expect(darkListeners.length, "change listener must be registered").toBeGreaterThan(0);
+    act(() => {
+      darkListeners[0]({ matches: true } as MediaQueryListEvent);
+    });
+
+    // Now dark
+    expect(root2.style.getPropertyValue("--surface")).toBe(CHROME.dark.surface);
+  });
+
+  it("9 — overdue on dark: atrasado label is OVERDUE_RED, Card li is INK_ON_DARK, background is CARD[kind].dark", async () => {
+    stubDarkMedia();
+    const palette = await import("./palette");
+    const CARD = (palette as Record<string, unknown>).CARD as Record<string, Record<string, string>>;
+    const OVERDUE_RED = (palette as Record<string, unknown>).OVERDUE_RED as string;
+    const INK_ON_DARK = (palette as Record<string, unknown>).INK_ON_DARK as string;
+
+    /** jsdom normalises hex to rgb(); compare via normalised form. */
+    function toRgb(hex: string): string {
+      const h = hex.replace("#", "");
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Fixed now: 2026-09-02. Deadline 2 days before = 2026-08-31 → 2 days overdue.
+    vi.setSystemTime(new Date(2026, 8, 2));
+    const overdueTask = task({ id: "dark-overdue", text: "entregar relatório", deadline: "2026-08-31" });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([overdueTask]));
+    const container = await render(<App />);
+    const li = container.querySelector("li") as HTMLElement;
+    expect(li).not.toBeNull();
+
+    // Card background must be the dark step for its kind (work → CARD.work.dark)
+    expect(li.style.background).toBe(toRgb(CARD.work.dark));
+    // Card ink must be INK_ON_DARK (urgency is "dark" → light ink)
+    expect(li.style.color).toBe(toRgb(INK_ON_DARK));
+
+    // The "atrasado" label must use OVERDUE_RED
+    // The overdue label is the innermost span with fontWeight:700 (the outer text
+    // span has no colour, so selecting by textContent matches the parent).
+    const atrasado = li.querySelector("span[style*='font-weight: 700']") as HTMLElement | null;
+    expect(atrasado, "atrasado span").not.toBeNull();
+    expect(atrasado!.textContent).toContain("atrasado");
+    expect(atrasado!.style.color).toBe(toRgb(OVERDUE_RED));
+  });
+
+  it("10 — dark + desktop: grid display and root --surface is CHROME.dark.surface", async () => {
+    stubDarkDesktopMedia();
+    const palette = await import("./palette");
+    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([
+      task({ id: "dark-d1", text: "estudar para prova" }),
+      task({ id: "dark-d2", text: "comprar leite" }),
+    ]));
+    const container = await render(<App />);
+    const root = container.firstElementChild as HTMLElement;
+
+    // Root must be dark
+    expect(root.style.getPropertyValue("--surface")).toBe(CHROME.dark.surface);
+
+    // Open list must be grid (same assertion ticket 04 row 9 uses)
+    const lists = [...container.querySelectorAll('ul[role="list"]')] as HTMLElement[];
+    expect(lists.length).toBeGreaterThan(0);
+    expect(getComputedStyle(lists[0]).display).toBe("grid");
   });
 });

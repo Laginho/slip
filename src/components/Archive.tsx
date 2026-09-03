@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { Task } from "../store";
 import { archive } from "../store";
-import { TEXT_QUIET } from "../palette";
 
 /**
  * The Archive: every Done Task, kept forever, shown on request at the bottom of the
@@ -37,7 +36,7 @@ const LINK: CSSProperties = {
   border: "none",
   background: "none",
   padding: "4px 0",
-  color: TEXT_QUIET,
+  color: "var(--text-quiet)",
   fontSize: 14,
   textDecoration: "underline",
   cursor: "pointer",
@@ -84,15 +83,15 @@ export function Archive({ tasks, now, open, onToggle }: Props) {
         <ul role="list" style={LIST}>
           {visible.map((task) => (
             <li key={task.id} style={{ listStyle: "none", fontSize: 16 }}>
-              <span style={{ color: TEXT_QUIET, textDecoration: "line-through" }}>
+              <span style={{ color: "var(--text-quiet)", textDecoration: "line-through" }}>
                 {task.text}
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p style={{ color: TEXT_QUIET, textAlign: "center", margin: 0, fontSize: 14 }}>
-          nada concluída nesta semana
+        <p style={{ color: "var(--text-quiet)", textAlign: "center", margin: 0, fontSize: 14 }}>
+          nada concluído nesta semana
         </p>
       )}
 

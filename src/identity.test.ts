@@ -67,3 +67,48 @@ describe("identity — rename to Slip + portrait lock", () => {
     expect(cap).toContain('"capture/kind"');
   });
 });
+
+describe("dark chrome shell", () => {
+  // Row 11 — RED: index.html must have two theme-color metas; the dark one has a media query
+  it("index.html has exactly two theme-color metas; the second has prefers-color-scheme: dark and %THEME_COLOR_DARK%", () => {
+    const html = read("index.html");
+    const themeColorMetas = html.match(/<meta\s+name="theme-color"[^>]*>/gi) ?? [];
+    expect(themeColorMetas.length).toBe(2);
+
+    // First still has %THEME_COLOR%
+    expect(themeColorMetas[0]).toMatch(/content="%THEME_COLOR%"/i);
+    expect(themeColorMetas[0]).not.toMatch(/media=/i);
+
+    // Second has the dark media query and %THEME_COLOR_DARK%
+    expect(themeColorMetas[1]).toMatch(/media="\s*\(prefers-color-scheme:\s*dark\)\s*"/i);
+    expect(themeColorMetas[1]).toMatch(/content="%THEME_COLOR_DARK%"/i);
+  });
+
+  // Row 12 — RED: vite.config.ts imports SURFACE_DARK and replaces both placeholders
+  it("vite.config.ts imports SURFACE_DARK, source contains %THEME_COLOR_DARK%, manifest still uses SURFACE", () => {
+    const cfg = read("vite.config.ts");
+    expect(cfg).toMatch(/import\s*\{[^}]*SURFACE_DARK[^}]*\}\s*from/);
+    expect(cfg).toContain("%THEME_COLOR_DARK%");
+    // Manifest block still uses SURFACE (light) for theme_color and background_color
+    expect(cfg).toMatch(/theme_color\s*:\s*SURFACE[^_]/);
+    expect(cfg).toMatch(/background_color\s*:\s*SURFACE/);
+  });
+
+  // Row 13 — RED: PRODUCT.md and DESIGN.md reworded away from "no dark mode"
+  it("PRODUCT.md and DESIGN.md have no 'no dark mode' line and each has 'follows the system colour scheme'", () => {
+    const product = read("PRODUCT.md");
+    const design = read("DESIGN.md");
+
+    // No "no dark mode" in either file
+    expect(product).not.toMatch(/no dark mode/i);
+    expect(design).not.toMatch(/no dark mode/i);
+
+    // Both must have the system-scheme phrasing (accepts colour or color)
+    expect(product).toMatch(/follows the system (colou?r )?scheme/i);
+    expect(design).toMatch(/follows the system (colou?r )?scheme/i);
+
+    // Nine-swatch freeze sentence in PRODUCT.md must be byte-identical to main.
+    // The sentence: "- The nine Card swatches are individually immutable:"
+    expect(product).toContain("- The nine Card swatches are individually immutable:");
+  });
+});

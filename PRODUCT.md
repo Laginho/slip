@@ -50,7 +50,7 @@ the absence of everything else.
 - Completing/deleting opens a 5-second undo window whose appearance must never move
   the list (notifications are a fixed overlay at the top).
 - Urgency is derived, never chosen: hue encodes Kind, intensity encodes time-to-deadline.
-- No dark mode, no theming, no accounts/auth, no multi-user anything (ADR 0001 stands).
+- No theme toggle; the chrome follows the system colour scheme; the nine Card swatches never vary; no accounts/auth, no multi-user anything (ADR 0001 stands).
 - Desktop (≥900px) renders open tasks as a post-it wall; below that, a single column.
 - The Overdue label's red-on-dark contrast is a known, documented, unresolved conflict
   (`src/palette.ts` comments); do not "fix" it silently.

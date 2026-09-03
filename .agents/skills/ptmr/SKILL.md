@@ -32,7 +32,23 @@ MAKE: <model>
 READ: <model>
 ```
 
-The Cast block is the **sole model authority**. Cast names are the user's informal names; PLAN resolves each one by **searching** the full `traycer_list_harness_models` listing across every harness (opencode included) — case-insensitive, punctuation- and order-tolerant, with version fragments and a parenthesised effort ("(medium)") as qualifiers. A unique match is used and the informal-name → harness-id mapping is reported in the return handoff. Zero or multiple matches → PLAN stops and hands back **listing the closest candidates it found** — giving up without searching, or a bare "not found", is a contract violation. **Never substitute a model silently**: a silent substitution corrupts the ledger.
+The Cast block is the **sole model authority**. Cast names are the user's informal names; PLAN resolves each one by **searching** the `traycer_list_harness_models` listing for the `codex` and `opencode` harnesses only (one call each; do not enumerate other harnesses unless a name has zero matches in both) — case-insensitive, punctuation- and order-tolerant, with version fragments and a parenthesised effort ("(medium)") as qualifiers. A unique match is used and the informal-name → harness-id mapping is reported in the return handoff. Zero or multiple matches → PLAN stops and hands back **listing the closest candidates it found** — giving up without searching, or a bare "not found", is a contract violation. **Never substitute a model silently**: a silent substitution corrupts the ledger.
+
+## Launch shorthand
+
+The user launches every cycle by hand in Traycer, so the master dev's reply that produces a
+handoff **must end** with exactly this block and nothing after it:
+
+```
+**Your move:** in Traycer select branch `<base branch>`, start a fresh task, send
+/ptmr you are PLAN. handoff <NN>.
+```
+
+- `<base branch>` is the branch the handoff names as base; the master dev leaves the main repo
+  checked out on it (Traycer bases its worktree on the checked-out branch, not on `main`).
+- `<NN>` is the handoff number only. PLAN resolves the file itself (see `roles/PLAN.md`); never
+  paste the path, the tip, or the return number into the launch message.
+- One block per handoff; several handoffs → several blocks, one per line pair.
 
 ## Commits
 

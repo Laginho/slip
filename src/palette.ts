@@ -3,7 +3,8 @@
  *
  * Hue = Kind. Intensity = Urgency (always derived from the Deadline, never chosen).
  * These are a tuned starting point, meant to be edited by hand before deploy.
- * Not a theme system: there is no picker, no dark mode, no settings screen.
+ * Not a theme system: there is no theme toggle; chrome follows the system scheme;
+ * Card swatches never vary.
  *
  * This file is the only source of colour. vite.config.ts imports SURFACE for the PWA
  * manifest and injects it into index.html's theme-color tag at build time, so tuning a
@@ -46,11 +47,44 @@ export const INK_ON_DARK = "#ffffff";
  */
 export const OVERDUE_RED = "#ff7a68";
 
-/** App chrome. vite.config.ts imports SURFACE for the manifest and the theme-color tag. */
-export const SURFACE = "#f5f4f2";
-export const TEXT_PRIMARY = "#1a1a1a";
-export const TEXT_QUIET = "#8a8783";
-export const TOAST_BG = "#2b2a28";
-export const TOAST_INK = "#f7f6f4";
-export const HAIRLINE = "#e2e0dc";
-export const CAPTURE_BG = "#ffffff";
+/**
+ * App chrome — two schemes, one choice: the system.
+ *
+ * Light is the warm paper the product has always been: off-white surface (#f5f4f2),
+ * white capture ground, charcoal ink. Dark is its warm inverse, not a cold grey:
+ * #1c1b19 surface and #262523 capture keep the same paper warmth after dark, so the
+ * coloured Cards stay the foreground, not the chrome.
+ *
+ * Every dark value is pinned by contrast, not taste:
+ * - On the dark surface: textPrimary (#f2f0ec) is 15.1:1, textQuiet (#a8a49e) is 6.9:1.
+ * - On the dark capture ground: textQuiet is 6.2:1 — the tightest of the three, so it
+ *   sets the floor for the quiet grey.
+ * - Toast is the light pair inverted exactly (charcoal #2b2a28 / ivory #f7f6f4 swap),
+ *   no new hue introduced.
+ *
+ * vite.config.ts imports SURFACE and SURFACE_DARK for the PWA manifest and the
+ * theme-color tags, so tuning here cannot leave the installed chrome stale.
+ */
+export const CHROME = {
+  light: {
+    surface: "#f5f4f2",
+    captureBg: "#ffffff",
+    textPrimary: "#1a1a1a",
+    textQuiet: "#8a8783",
+    hairline: "#e2e0dc",
+    toastBg: "#2b2a28",
+    toastInk: "#f7f6f4",
+  },
+  dark: {
+    surface: "#1c1b19",
+    captureBg: "#262523",
+    textPrimary: "#f2f0ec",
+    textQuiet: "#a8a49e",
+    hairline: "#3a3835",
+    toastBg: "#f7f6f4",
+    toastInk: "#2b2a28",
+  },
+} as const;
+
+export const SURFACE = CHROME.light.surface;
+export const SURFACE_DARK = CHROME.dark.surface;

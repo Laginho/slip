@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 // Explicit .ts extension: Vite's planned native config loader will not resolve the
 // extensionless form, and both the build and the test run warn about it today.
-import { SURFACE } from "./src/palette.ts";
+import { SURFACE, SURFACE_DARK } from "./src/palette.ts";
 
 /**
  * Resolves index.html's theme-color from the palette at build time.
@@ -16,7 +16,7 @@ import { SURFACE } from "./src/palette.ts";
 const themeColor: Plugin = {
   name: "slip:theme-color",
   transformIndexHtml(html) {
-    return html.replace("%THEME_COLOR%", SURFACE);
+    return html.replace("%THEME_COLOR%", SURFACE).replace("%THEME_COLOR_DARK%", SURFACE_DARK);
   },
 };
 
