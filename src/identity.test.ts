@@ -107,8 +107,8 @@ describe("dark chrome shell", () => {
     expect(product).toMatch(/follows the system (colou?r )?scheme/i);
     expect(design).toMatch(/follows the system (colou?r )?scheme/i);
 
-    // Nine-swatch freeze sentence in DESIGN.md must be byte-identical to main.
-    // The sentence: "The nine Card swatches are individually immutable:"
-    expect(design).toContain("The nine Card swatches are individually immutable:");
+    // Nine-swatch freeze sentence in PRODUCT.md must be byte-identical to main.
+    // The sentence: "- The nine Card swatches are individually immutable:"
+    expect(product).toContain("- The nine Card swatches are individually immutable:");
   });
 });

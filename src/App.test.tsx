@@ -939,7 +939,6 @@ describe("dark chrome", () => {
   it("9 — overdue on dark: atrasado label is OVERDUE_RED, Card li is INK_ON_DARK, background is CARD[kind].dark", async () => {
     stubDarkMedia();
     const palette = await import("./palette");
-    const CHROME = (palette as Record<string, unknown>).CHROME as Record<string, Record<string, string>>;
     const CARD = (palette as Record<string, unknown>).CARD as Record<string, Record<string, string>>;
     const OVERDUE_RED = (palette as Record<string, unknown>).OVERDUE_RED as string;
     const INK_ON_DARK = (palette as Record<string, unknown>).INK_ON_DARK as string;
