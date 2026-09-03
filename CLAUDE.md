@@ -53,3 +53,12 @@ Ao avaliar o encerramento de um ticket, exija este formato dos subagentes:
 - /ponytail-audit: Aprovado sem débitos
 - Débitos residuais: Nenhum
 ```
+
+## Onde o trabalho é rastreado
+
+Issues locais em `.scratch/<feature-slug>/` (convenção completa em `docs/agents/issue-tracker.md`): `spec.md` (a spec da feature), `issues/NN-slug.md`
+(um ticket por arquivo, linha `**Status:**` no topo com os rótulos de
+`docs/agents/triage-labels.md` mais `complete`) e, nas features
+tocadas pelo PTMR, `ledger.md` (um registro por ciclo, escrito só pelo master — ver
+`docs/agents/orchestration.md`). Trabalho aberto = tickets sem `complete`/`wontfix`. Histórico
+de fechamento = `git log -- .scratch/`.
