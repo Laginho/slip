@@ -178,3 +178,29 @@ export function typeInto(input: HTMLInputElement, value: string): void {
 export function queryLabel(root: ParentNode, label: string): HTMLElement | null {
   return root.querySelector(`[aria-label="${label}"]`);
 }
+
+/**
+ * jsdom has no layout engine, so scrollTop is always 0 and scrollTo is absent.
+ * This installs a writable scrollTop accessor on HTMLElement.prototype — the
+ * getter returns a per-element stored value (default 0); the setter stores it.
+ * scrollTo is intentionally NOT defined: the fallback branch in App.tsx is the
+ * one exercised, and the ticket's error case ("scrollTo missing must not throw")
+ * is covered for free.
+ *
+ * Returns a restore function that reverts the prototype.
+ */
+export function stubScrollTop(): () => void {
+  const store = new WeakMap<Element, number>();
+  Object.defineProperty(HTMLElement.prototype, "scrollTop", {
+    get() {
+      return store.get(this as Element) ?? 0;
+    },
+    set(v: number) {
+      store.set(this as Element, v);
+    },
+    configurable: true,
+  });
+  return () => {
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTop;
+  };
+}

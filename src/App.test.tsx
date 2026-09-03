@@ -1,7 +1,8 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
+import { App, ARCHIVE_HIDDEN_OFFSET } from "./App";
 import { STORAGE_KEY } from "./store";
+import { ARCHIVE_ROW_HEIGHT } from "./components/Archive";
 import {
   activate,
   click,
@@ -13,6 +14,7 @@ import {
   stubDarkMedia,
   stubMediaWithChangeListener,
   stubNoMatchMedia,
+  stubScrollTop,
   task,
   typeInto,
   unmount,
@@ -619,24 +621,30 @@ describe("Archive at the top", () => {
     expect(firstChild.textContent).toContain("ocultar concluídas");
   });
 
-  it("row 3 — opening the Archive scrolls <main> to top", async () => {
+  it("row 3 — opening the Archive scrolls the region to top (scroll position moved to main.parentElement in ticket 05)", async () => {
     vi.setSystemTime(TODAY);
     seedStorage([
       task({ id: "o1", text: "comprar leite" }),
       task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
     ]);
-    const container = await render(<App />);
-    const main = container.querySelector("main")!;
+    const restore = stubScrollTop();
+    try {
+      const container = await render(<App />);
+      const main = container.querySelector("main")!;
+      const region = main.parentElement as HTMLElement;
 
-    // Simulate the list being scrolled down
-    Object.defineProperty(main, "scrollTop", { value: 120, writable: true, configurable: true });
+      // Simulate the region being scrolled down
+      region.scrollTop = 120;
 
-    const toggleBtn = [...main.querySelectorAll("button")].find(
-      (b) => b.textContent === "ver concluídas",
-    )!;
-    await click(toggleBtn);
+      const toggleBtn = [...main.querySelectorAll("button")].find(
+        (b) => b.textContent === "ver concluídas",
+      )!;
+      await click(toggleBtn);
 
-    expect(main.scrollTop).toBe(0);
+      expect(region.scrollTop).toBe(0);
+    } finally {
+      restore();
+    }
   });
 
   it("row 4 — clicking 'ocultar concluídas' hides Done rows; button reads 'ver concluídas'", async () => {
@@ -770,6 +778,224 @@ describe("Archive at the top", () => {
     // Archive link still first
     const firstChild = main.children[0] as HTMLElement;
     expect(firstChild.textContent).toContain("ver concluídas");
+  });
+});
+
+/**
+ * Pull to reveal the Archive (ticket 05).
+ * The region is a separate scrolling ancestor outside <main>. The content declares
+ * minHeight when an Archive link exists so the row can be pulled out of view.
+ * All rows use stubScrollTop() so scrollTop is writable in jsdom.
+ *
+ * Rows 1, 2, 4 (scrollTop half), 5, 7, 8 (declarations), 9 (mount value) are RED on the base.
+ * Rows 3, 6, 10 and 4's text half are GREEN already.
+ */
+describe("pull to reveal the Archive", () => {
+  const TODAY = new Date(2026, 8, 2); // 2026-09-02
+
+  let restoreScrollTop: () => void;
+
+  beforeEach(() => {
+    vi.setSystemTime(TODAY);
+    restoreScrollTop = stubScrollTop();
+  });
+
+  afterEach(() => {
+    restoreScrollTop();
+  });
+
+  it("row 1 — 2 Open, 1 Done: region overscrollBehavior, main minHeight+boxSizing, link row height", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    // Region declarations
+    expect(region.style.overscrollBehavior).toBe("contain");
+    // Content declarations
+    expect(main.style.minHeight).toBe(`calc(100% + ${ARCHIVE_HIDDEN_OFFSET}px)`);
+    expect(main.style.boxSizing).toBe("border-box");
+    // Link row <p> height
+    const linkRow = main.querySelector("p") as HTMLElement;
+    expect(linkRow).not.toBeNull();
+    expect(linkRow.style.height).toBe(`${ARCHIVE_ROW_HEIGHT}px`);
+  });
+
+  it("row 2 — 2 Open, 1 Done: region.scrollTop === ARCHIVE_HIDDEN_OFFSET right after mount", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+  });
+
+  it("row 3 — scrolled to 0: 'ver concluídas' present, no Done text, button still reads 'ver concluídas'", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    // Scroll to 0 and dispatch scroll event
+    region.scrollTop = 0;
+    region.dispatchEvent(new Event("scroll"));
+
+    // Nothing auto-opens
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.textContent).not.toContain("entregar relatório");
+    const toggleBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    );
+    expect(toggleBtn).not.toBeNull();
+  });
+
+  it("row 4 — scrolled to 0, click 'ver concluídas': opens, Done text present, region.scrollTop stays 0", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    region.scrollTop = 0;
+
+    const openBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    await click(openBtn);
+
+    expect(main.textContent).toContain("ocultar concluídas");
+    expect(main.textContent).toContain("entregar relatório");
+    expect(region.scrollTop).toBe(0);
+  });
+
+  it("row 5 — open, click 'ocultar concluídas': Done text gone, region.scrollTop returns to ARCHIVE_HIDDEN_OFFSET", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    // Open first
+    const openBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ver concluídas",
+    )!;
+    await click(openBtn);
+
+    // Close
+    const closeBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "ocultar concluídas",
+    )!;
+    await click(closeBtn);
+
+    expect(main.textContent).not.toContain("entregar relatório");
+    expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+  });
+
+  it("row 6 — 2 Open, 0 Done: no 'ver concluídas', main.style.minHeight === '', region.scrollTop === 0", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    expect(main.textContent).not.toContain("ver concluídas");
+    expect(main.style.minHeight).toBe("");
+    expect(region.scrollTop).toBe(0);
+  });
+
+  it("row 7 — 0 Open, 1 Done: link present, main minHeight declared, region.scrollTop === ARCHIVE_HIDDEN_OFFSET", async () => {
+    seedStorage([
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    expect(main.textContent).toContain("ver concluídas");
+    expect(main.style.minHeight).toBe(`calc(100% + ${ARCHIVE_HIDDEN_OFFSET}px)`);
+    expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+  });
+
+  it("row 8 — desktop: same four declarations as row 1; Open <ul> still display:grid", async () => {
+    const { stubDesktopMedia } = await import("./testing");
+    stubDesktopMedia();
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    expect(region.style.overscrollBehavior).toBe("contain");
+    expect(main.style.minHeight).toBe(`calc(100% + ${ARCHIVE_HIDDEN_OFFSET}px)`);
+    expect(main.style.boxSizing).toBe("border-box");
+    const linkRow = main.querySelector("p") as HTMLElement;
+    expect(linkRow.style.height).toBe(`${ARCHIVE_ROW_HEIGHT}px`);
+    // Open <ul> still grid
+    const openList = main.querySelector('ul[role="list"]') as HTMLElement;
+    expect(openList).not.toBeNull();
+    expect(getComputedStyle(openList).display).toBe("grid");
+  });
+
+  it("row 9 — 1 Open, 1 Done: complete + undo, region.scrollTop === ARCHIVE_HIDDEN_OFFSET after each step", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+
+    // Complete the Open task
+    await activate(queryLabel(container, "Concluir")!);
+    expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+
+    // Undo the completion
+    const undoBtn = [...main.querySelectorAll("button")].find(
+      (b) => b.textContent === "desfazer",
+    );
+    // If the toast is visible, undo it
+    if (undoBtn) {
+      await click(undoBtn);
+      expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+    }
+  });
+
+  it("row 10 — 2 Open, 1 Done: main.children[0] is Archive row, main.children.length === 2 (ticket-04 shape intact)", async () => {
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "o2", text: "ligar dentista" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: TODAY.getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+
+    // The Archive link row is the first child, TaskList is the second
+    const firstChild = main.children[0] as HTMLElement;
+    expect(firstChild.textContent).toContain("ver concluídas");
+    expect(main.children.length).toBe(2);
   });
 });
 
