@@ -91,7 +91,7 @@ export function Archive({ tasks, now, open, onToggle }: Props) {
         </ul>
       ) : (
         <p style={{ color: "var(--text-quiet)", textAlign: "center", margin: 0, fontSize: 14 }}>
-          nada concluída nesta semana
+          nada concluído nesta semana
         </p>
       )}
 
