@@ -10,15 +10,15 @@ reserved space.
 
 **Blocked by:** 04 (Archive at the top).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] When an Archive link exists, the scrolling region's content declares a minimum height of the region's height plus the link row, so the region always scrolls
-- [ ] On mount the region's `scrollTop` equals the link row's height (link just out of view)
-- [ ] When the Archive closes, `scrollTop` returns to the link row's height
-- [ ] Scrolling to `scrollTop` 0 shows the link; the Archive stays closed until the link is activated
-- [ ] The scrolling region declares `overscroll-behavior: contain`
-- [ ] With zero Done Tasks: no link, no extra minimum height, `scrollTop` untouched
-- [ ] Both pointer profiles; the desktop layout is unaffected beyond the same harmless mechanics
+- [x] When an Archive link exists, the scrolling region's content declares a minimum height of the region's height plus the link row, so the region always scrolls
+- [x] On mount the region's `scrollTop` equals the link row's height (link just out of view)
+- [x] When the Archive closes, `scrollTop` returns to the link row's height
+- [x] Scrolling to `scrollTop` 0 shows the link; the Archive stays closed until the link is activated
+- [x] The scrolling region declares `overscroll-behavior: contain`
+- [x] With zero Done Tasks: no link, no extra minimum height, `scrollTop` untouched
+- [x] Both pointer profiles; the desktop layout is unaffected beyond the same harmless mechanics
 
 ## Test Case Matrix
 
