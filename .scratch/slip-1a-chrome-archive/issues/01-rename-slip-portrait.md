@@ -8,7 +8,7 @@ in place and keeps its Tasks.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-human
+**Status:** complete
 
 - [x] Manifest `name` and `short_name` are "Slip"
 - [x] Manifest has `orientation: "portrait"`
