@@ -12,9 +12,9 @@ reserved space.
 
 **Status:** ready-for-agent
 
-- [ ] When an Archive link exists, the scrolling region's content declares a minimum height of the region's height plus the link row, so the region always scrolls
-- [ ] On mount the region's `scrollTop` equals the link row's height (link just out of view)
-- [ ] When the Archive closes, `scrollTop` returns to the link row's height
+- [ ] When an Archive link exists, the scrolling region's content declares a minimum height of the region's height plus the hidden offset (link row height + the content's top padding), so the region always scrolls
+- [ ] On mount the region's `scrollTop` equals the hidden offset (link just out of view)
+- [ ] When the Archive closes, `scrollTop` returns to the hidden offset
 - [ ] Scrolling to `scrollTop` 0 shows the link; the Archive stays closed until the link is activated
 - [ ] The scrolling region declares `overscroll-behavior: contain`
 - [ ] With zero Done Tasks: no link, no extra minimum height, `scrollTop` untouched
