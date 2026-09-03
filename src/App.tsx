@@ -12,6 +12,7 @@ import { UndoToast } from "./components/UndoToast";
  * No router, no tabs, no nav bar: the Archive (issue 08) is a section, not a route.
  * The scrolling region and the content are two elements: the region scrolls while
  * the content declares the extra height that keeps the list pullable.
+ * Ctrl+H toggles the Archive, except from a Card's in-place editor.
  */
 
 export const ARCHIVE_HIDDEN_OFFSET = 16 + ARCHIVE_ROW_HEIGHT;
@@ -38,6 +39,21 @@ export function App() {
     if (!hasArchive) return;
     scrollRegionTo(archiveOpen ? 0 : ARCHIVE_HIDDEN_OFFSET);
   }, [archiveOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+      if (event.key.toLowerCase() !== "h") return;
+      const target = event.target;
+      // A Card's in-place editor: the only <input> that lives inside an <li>.
+      if (target instanceof HTMLInputElement && target.closest("li") !== null) return;
+      if (!hasArchive) return; // nothing to show: leave the browser's Ctrl+H alone
+      event.preventDefault();
+      setArchiveOpen((o) => !o);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hasArchive]);
 
   /**
    * The one layout breakpoint. Inline styles cannot express a media query, so the
