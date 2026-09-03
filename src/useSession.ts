@@ -136,9 +136,32 @@ export function useSession() {
     return true;
   };
 
+  /**
+   * Sync now, folding in any debounced round trip still pending: roundTrip() reads the
+   * latest list, so the pending timer would only repeat what goes out here.
+   */
+  const syncNow = () => {
+    window.clearTimeout(syncTimer.current);
+    roundTrip();
+  };
+
   useEffect(() => {
     roundTrip();
-    return () => window.clearTimeout(syncTimer.current);
+    // Two moments the debounce cannot see: connectivity coming back while the app is open
+    // (writes made offline finally go up) and the app returning to the foreground (the
+    // other device's writes come down). The app being *closed* when the network returns
+    // is not covered -- the OS gives a page no chance to run -- and ticket 09 records
+    // that residual.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncNow();
+    };
+    window.addEventListener("online", syncNow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(syncTimer.current);
+      window.removeEventListener("online", syncNow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   // Every destructive action is applied immediately and offers a way back, rather than
