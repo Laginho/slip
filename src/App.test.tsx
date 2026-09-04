@@ -20,6 +20,7 @@ import {
   typeInto,
   unmount,
 } from "./testing";
+import { CARD } from "./palette";
 
 /**
  * Integration tests for the write-failure boundary. Storage is authoritative: when a
@@ -74,12 +75,12 @@ describe("Capture under a failing write", () => {
     throwOnSetItem();
     const container = await render(<App />);
 
-    const input = container.querySelector<HTMLInputElement>('input[placeholder="uma tarefa..."]')!;
-    typeInto(input, "comprar leite");
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="uma tarefa..."]')!;
+    typeInto(textarea, "comprar leite");
     await submitCapture(container);
 
     // Everything the user typed stays put for a retry.
-    expect(input.value).toBe("comprar leite");
+    expect(textarea.value).toBe("comprar leite");
     // The list still holds nothing, storage still holds nothing.
     expect(container.querySelector('main ul[role="list"]')).toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
@@ -91,7 +92,7 @@ describe("Capture under a failing write", () => {
     vi.mocked(Storage.prototype.setItem).mockRestore();
     await submitCapture(container);
     expect(container.textContent).toContain("comprar leite");
-    expect(input.value).toBe("");
+    expect(textarea.value).toBe("");
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(1);
   });
@@ -109,13 +110,13 @@ describe("Capture under a failing write", () => {
     // The selection applied for this session -- asserted behaviourally: once writes
     // recover, the very next Capture lands as college, not as the default work.
     vi.mocked(Storage.prototype.setItem).mockRestore();
-    const input = container.querySelector<HTMLInputElement>('input[placeholder="uma tarefa..."]')!;
-    typeInto(input, "prova de história");
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="uma tarefa..."]')!;
+    typeInto(textarea, "prova de história");
     await submitCapture(container);
 
     const [stored] = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(stored.kind).toBe("college");
-    expect(input.value).toBe("");
+    expect(textarea.value).toBe("");
   });
 });
 
@@ -255,7 +256,7 @@ describe("storage refusing reads", () => {
     });
     const container = await render(<App />);
     expect(container.querySelector("main")!.textContent).toBe("");
-    expect(container.querySelector('input[placeholder="uma tarefa..."]')).not.toBeNull();
+    expect(container.querySelector('textarea[placeholder="uma tarefa..."]')).not.toBeNull();
   });
 });
 
@@ -313,8 +314,8 @@ describe("the notification layer", () => {
     const main = container.querySelector("main")!;
     const before = main.innerHTML;
 
-    const input = container.querySelector<HTMLInputElement>('input[placeholder="uma tarefa..."]')!;
-    await act(async () => typeInto(input, "comprar leite"));
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="uma tarefa..."]')!;
+    await act(async () => typeInto(textarea, "comprar leite"));
     await submitCapture(container);
 
     const banner = container.querySelector('[role="alert"]')!;
@@ -419,30 +420,16 @@ describe("the notification layer", () => {
 
 /**
  * Visual promotion 04 RED: Phone B/A Conversa vs Desktop A/A Parede.
- * Phone (<900): list/col + Capture composer interno arredondado hairline dentro de faixa branca pinada;
- * Desktop (≥900): grid wall + Capture flat/full-width sem bubble radius com hairline superior.
- * Labels pt-BR: `nova tarefa` (input placeholder/aria) e `prazo` (deadline).
+ * Phone (<900): list/col + CaptureBar floating pill on capture ground;
+ * Desktop (>=900): grid wall + same pill (one render path).
+ * Enter sends under a fine pointer; the send button is the phone's path.
+ * Labels pt-BR: `nova tarefa` (textarea placeholder/aria) e `prazo` (deadline).
  * Mocks permitidos: apenas matchMedia e relógio fixo. Não duplica gestos/keyboard.
  */
 describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () => {
   const FIXED_TASK = task({ id: "vis-1", text: "preparar apresentação", deadline: "2026-08-30" });
 
-  function hasHairline(style: CSSStyleDeclaration | string): boolean {
-    const s = typeof style === "string" ? style : (style.borderTop || style.border || "");
-    // After dark chrome, CaptureBar uses var(--hairline) inline. Before that,
-    // the literal #e2e0dc appears. Accept both so the test stays green across
-    // the cycle without compelling production to hardcode a fallback.
-    return (
-      s.includes("var(--hairline)") ||
-      s.includes("#e2e0dc") ||
-      s.includes("e2e0dc") ||
-      s.includes("226, 224, 220") ||
-      s.includes("226,224,220") ||
-      s.includes("rgb(226")
-    );
-  }
-
-  it("App mobile (matchMedia false): TaskList lista/coluna e CaptureBar compositor interno arredondado com hairline + labels pt-BR", async () => {
+  it("App mobile (matchMedia false): TaskList lista/coluna e CaptureBar floating pill + labels pt-BR", async () => {
     stubNoMatchMedia();
     localStorage.clear();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([FIXED_TASK]));
@@ -457,39 +444,36 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
     // Also gap 12 for conversational list (wall is grid gap 16)
     if (lists[0]) expect(lists[0].style.gap).toBe("12px");
 
-    // CaptureBar: faixa branca pinada + compositor interno arredondado com hairline
+    // CaptureBar: floating pill on capture ground (one render path)
     const form = container.querySelector("form") as HTMLElement;
     expect(form).not.toBeNull();
-    // Outer strip is white pinned — form background is the capture token
-    expect(form.style.background, "faixa da captura").toBe("var(--capture-bg)");
-
-    // Inner composer: rounded + hairline inside the strip (not the form borderTop)
-    // Future mobile wraps chips+inputs in a rounded div; current flat has none -> RED
-    const innerComposer = form.querySelector("div") as HTMLElement | null;
-    // Must exist and be rounded
-    expect(innerComposer, "compositor interno arredondado").not.toBeNull();
-    if (innerComposer) {
-      const radius = getComputedStyle(innerComposer).borderRadius || innerComposer.style.borderRadius;
-      expect(radius, "radius conversacional").toMatch(/16px|999px/);
-      const border = innerComposer.style.border || getComputedStyle(innerComposer).border;
-      expect(hasHairline(innerComposer.style.border || border), "hairline no compositor").toBe(true);
+    expect(form.style.background, "pill ground").toBe("var(--capture-bg)");
+    expect(form.style.border, "no border on pill").toBe("");
+    expect(form.style.borderTop, "no borderTop on pill").toBe("");
+    expect(form.style.maxWidth, "pill max width").toBe("720px");
+    expect(form.style.marginLeft, "pill centred").toBe("auto");
+    expect(form.style.marginRight, "pill centred").toBe("auto");
+    expect(form.style.borderRadius, "pill radius").toBe("999px");
+    // No div inside the pill — single render path
+    expect(form.querySelector("div"), "no div inside pill").toBeNull();
+    // Only chip buttons carry var(--hairline) borders
+    const hairlineEls = [...form.querySelectorAll<HTMLElement>("*")].filter((el) =>
+      (el.style.border || "").includes("var(--hairline)"),
+    );
+    for (const el of hairlineEls) {
+      expect(el.tagName).toBe("BUTTON");
     }
 
     // Labels pt-BR
-    const novaTarefa =
-      container.querySelector('input[placeholder="nova tarefa"]') ||
-      container.querySelector('input[aria-label="nova tarefa"]') ||
-      queryLabel(container, "nova tarefa");
+    const novaTarefa = queryLabel(container, "nova tarefa");
     expect(novaTarefa, 'label pt-BR "nova tarefa"').not.toBeNull();
-    const prazo =
-      container.querySelector('input[aria-label="prazo"]') ||
-      container.querySelector('input[placeholder="prazo"]');
+    const prazo = queryLabel(container, "prazo");
     expect(prazo, 'label pt-BR "prazo"').not.toBeNull();
     // Deadline still 30/08 semantics but mobile Card shows "vence 30/08"
     expect(container.textContent).toContain("vence 30/08");
   });
 
-  it("App desktop (matchMedia true): TaskList grid wall e CaptureBar flat full-width sem bubble radius com hairline superior", async () => {
+  it("App desktop (matchMedia true): TaskList grid wall e CaptureBar same pill declarations (one render path)", async () => {
     const { stubDesktopMedia } = await import("./testing");
     stubDesktopMedia();
     localStorage.clear();
@@ -504,18 +488,18 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
     expect(lists[0].style.gridTemplateColumns).toMatch(/auto-fill.*minmax/);
     expect(lists[0].style.gap).toBe("16px");
 
-    // CaptureBar flat: full-width, sem bubble radius interno, hairline superior na faixa
+    // CaptureBar: same pill as mobile (one render path)
     const form = container.querySelector("form") as HTMLElement;
     expect(form).not.toBeNull();
-    // No inner rounded composer — flat strip
-    const innerRounded = [...form.querySelectorAll("div")].find((d) => {
-      const r = (d as HTMLElement).style.borderRadius || getComputedStyle(d as HTMLElement).borderRadius;
-      return r && r !== "0px" && r !== "";
-    });
-    expect(innerRounded, "desktop não deve ter bubble radius interno").toBeUndefined();
-    // Hairline superior na faixa (form borderTop)
-    const borderTop = form.style.borderTop || getComputedStyle(form).borderTop;
-    expect(hasHairline(borderTop), "hairline superior desktop").toBe(true);
+    expect(form.style.background, "pill ground").toBe("var(--capture-bg)");
+    expect(form.style.border, "no border on pill").toBe("");
+    expect(form.style.borderTop, "no borderTop on pill").toBe("");
+    expect(form.style.maxWidth, "pill max width").toBe("720px");
+    expect(form.style.marginLeft, "pill centred").toBe("auto");
+    expect(form.style.marginRight, "pill centred").toBe("auto");
+    expect(form.style.borderRadius, "pill radius").toBe("999px");
+    // No div inside the pill
+    expect(form.querySelector("div"), "no div inside pill").toBeNull();
 
     // Ordem preservada — mesma Task aparece
     expect(container.textContent).toContain("preparar apresentação");
@@ -535,7 +519,7 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
 describe("fixup 04 — compositor mobile cabe no viewport sem overflow", () => {
   const OVERFLOW_TASK = task({ id: "fix-1", text: "preparar apresentação", deadline: "2026-08-30" });
 
-  it("mobile (<900): compositor permite shrink (minWidth 0) para não exceder o form/viewport", async () => {
+  it("mobile (<900): textarea declares minWidth 0 (flex item can shrink)", async () => {
     stubNoMatchMedia();
     localStorage.clear();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([OVERFLOW_TASK]));
@@ -544,35 +528,32 @@ describe("fixup 04 — compositor mobile cabe no viewport sem overflow", () => {
     const form = container.querySelector("form") as HTMLElement;
     expect(form).not.toBeNull();
 
-    // No mobile o CaptureBar envolve os fields em <div style={COMPOSER}>
-    const composer = form.querySelector("div") as HTMLElement | null;
-    expect(composer, "compositor interno deve existir no mobile").not.toBeNull();
-    if (composer) {
-      // Propriedade de layout que permite ao flex item encolher abaixo do conteúdo intrínseco
-      // O fix mínimo é `minWidth: 0` no COMPOSER (src/components/CaptureBar.tsx:56)
-      const inlineMinWidth = composer.style.minWidth;
-      const computedMinWidth = getComputedStyle(composer).minWidth;
-      const allowsShrink = inlineMinWidth === "0" || inlineMinWidth === "0px" || computedMinWidth === "0px";
-      expect(allowsShrink, `minWidth deve ser 0 para permitir shrink (inline='${inlineMinWidth}' computed='${computedMinWidth}')`).toBe(true);
-    }
+    // One render path: textarea is a direct child of the form
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="uma tarefa..."]');
+    expect(textarea, "textarea must exist").not.toBeNull();
+    // The textarea must declare minWidth 0 so the flex item can shrink
+    const inlineMinWidth = textarea!.style.minWidth;
+    const computedMinWidth = getComputedStyle(textarea!).minWidth;
+    const allowsShrink = inlineMinWidth === "0" || inlineMinWidth === "0px" || computedMinWidth === "0px";
+    expect(allowsShrink, `textarea minWidth must be 0 (inline='${inlineMinWidth}' computed='${computedMinWidth}')`).toBe(true);
   });
 
-  it("desktop (>=900): continua sem compositor interno (faixa flat)", async () => {
+  it("both profiles: no div inside the pill (one render path)", async () => {
+    // Phone
+    stubNoMatchMedia();
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([OVERFLOW_TASK]));
+    const phoneContainer = await render(<App />);
+    expect(phoneContainer.querySelector("form")!.querySelectorAll("div").length, "phone pill has no div").toBe(0);
+
+    // Desktop
+    await unmount();
     const { stubDesktopMedia } = await import("./testing");
     stubDesktopMedia();
     localStorage.clear();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([OVERFLOW_TASK]));
-    const container = await render(<App />);
-
-    const form = container.querySelector("form") as HTMLElement;
-    expect(form).not.toBeNull();
-    // Desktop é flat full-width, sem bubble interno arredondado
-    const hasInnerComposer = form.querySelector("div") !== null;
-    const innerRounded = [...form.querySelectorAll("div")].some((d) => {
-      const r = (d as HTMLElement).style.borderRadius || getComputedStyle(d as HTMLElement).borderRadius;
-      return r && r !== "0px" && r !== "";
-    });
-    expect(hasInnerComposer && innerRounded, "desktop não deve ter compositor interno arredondado").toBe(false);
+    const desktopContainer = await render(<App />);
+    expect(desktopContainer.querySelector("form")!.querySelectorAll("div").length, "desktop pill has no div").toBe(0);
   });
 });
 
@@ -1094,8 +1075,8 @@ describe("dark chrome", () => {
     });
     const container = await render(<App />);
 
-    const input = container.querySelector<HTMLInputElement>('input[placeholder="uma tarefa..."]')!;
-    typeInto(input, "comprar leite");
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="uma tarefa..."]')!;
+    typeInto(textarea, "comprar leite");
     await dispatch(
       new Event("submit", { bubbles: true, cancelable: true }),
       container.querySelector("form")!,
@@ -1108,16 +1089,25 @@ describe("dark chrome", () => {
     expect(banner!.style.color).toContain("var(--toast-ink)");
   });
 
-  it("6 — CaptureBar uses var(--capture-bg) / var(--hairline), not imported constants", async () => {
+  it("6 — CaptureBar uses var(--capture-bg), no hairline on form, hairline only on chip buttons", async () => {
     stubNoMatchMedia();
     localStorage.clear();
     const container = await render(<App />);
 
     const form = container.querySelector("form") as HTMLElement;
     expect(form).not.toBeNull();
-    // On the base, CaptureBar imports CAPTURE_BG and HAIRLINE directly; it must use var(--…)
+    // One render path: pill uses var(--capture-bg)
     expect(form.style.background).toContain("var(--capture-bg)");
-    expect(form.style.borderTop).toContain("var(--hairline)");
+    // No border/borderTop on the pill
+    expect(form.style.border, "no border on pill").toBe("");
+    expect(form.style.borderTop, "no borderTop on pill").toBe("");
+    // The only elements whose style mentions var(--hairline) are the chip buttons
+    const hairlineEls = [...form.querySelectorAll<HTMLElement>("*")].filter((el) =>
+      (el.style.border || "").includes("var(--hairline)"),
+    );
+    for (const el of hairlineEls) {
+      expect(el.tagName).toBe("BUTTON");
+    }
   });
 
   it("7 — UndoToast uses var(--toast-bg) / var(--toast-ink)", async () => {
@@ -1334,22 +1324,22 @@ describe("Ctrl+H toggles the Archive", () => {
     expect(main.textContent).not.toContain("entregar relatório");
   });
 
-  it("row 6 — Ctrl+H on capture input: opens; input value preserved", async () => {
+  it("row 6 — Ctrl+H on capture textarea: opens; textarea value preserved", async () => {
     seedTwoOpenOneDone();
     const container = await render(<App />);
     const main = container.querySelector("main")!;
     const region = main.parentElement as HTMLElement;
     region.scrollTop = ARCHIVE_HIDDEN_OFFSET;
 
-    const input = container.querySelector<HTMLInputElement>("input")!;
-    typeInto(input, "abc");
-    input.focus();
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="nova tarefa"]')!;
+    typeInto(textarea, "abc");
+    textarea.focus();
 
     const event = keyEvent("H", { ctrlKey: true });
-    await dispatch(event, input);
+    await dispatch(event, textarea);
 
     expect(main.textContent).toContain("ocultar concluídas");
-    expect(input.value).toBe("abc");
+    expect(textarea.value).toBe("abc");
   });
 
   it("row 7 — Ctrl+H on Card editor: still closed; editor stays, draft intact; defaultPrevented false", async () => {
@@ -1436,5 +1426,373 @@ describe("Ctrl+H toggles the Archive", () => {
     expect(main.textContent).toContain("ver concluídas");
     expect(main.textContent).not.toContain("entregar relatório");
     expect(region.scrollTop).toBe(ARCHIVE_HIDDEN_OFFSET);
+  });
+});
+
+/**
+ * Capture pill (ticket 02) — one render path, floating pill.
+ * The form is always a pill: centred ≤720px, --capture-bg, no border,
+ * borderRadius 999px when one line, 26px when multiline.
+ * Enter sends under a fine pointer; Shift+Enter breaks; under coarse
+ * the button sends; enterKeyHint follows the same rule.
+ * Send button: 44px min, 36px circle, --text-primary ground,
+ * --surface glyph, dimmed while blank.
+ */
+describe("the capture pill (ticket 02)", () => {
+  /** Query shortcuts — the pill is always a <form>. */
+  function pillOf(container: HTMLElement) {
+    return container.querySelector("form") as HTMLElement;
+  }
+  function fieldOf(container: HTMLElement) {
+    return queryLabel(container, "nova tarefa") as HTMLTextAreaElement;
+  }
+  function sendOf(container: HTMLElement) {
+    return queryLabel(container, "enviar") as HTMLButtonElement;
+  }
+  function circleOf(container: HTMLElement) {
+    return sendOf(container).firstElementChild as HTMLElement;
+  }
+
+  /** jsdom normalises hex to rgb(); compare via normalised form. */
+  function toRgb(hex: string): string {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  it("row 1 — phone: pill style declarations, no div, hairline only on chips", async () => {
+    stubNoMatchMedia();
+    const container = await render(<App />);
+    const pill = pillOf(container);
+
+    expect(pill.style.background).toBe("var(--capture-bg)");
+    expect(pill.style.border).toBe("");
+    expect(pill.style.borderTop).toBe("");
+    expect(pill.style.maxWidth).toBe("720px");
+    expect(pill.style.marginLeft).toBe("auto");
+    expect(pill.style.marginRight).toBe("auto");
+    expect(pill.style.borderRadius).toBe("999px");
+    expect(pill.querySelector("div")).toBeNull();
+    const hairlineEls = [...pill.querySelectorAll<HTMLElement>("*")].filter((el) =>
+      (el.style.border || "").includes("var(--hairline)"),
+    );
+    for (const el of hairlineEls) {
+      expect(el.tagName).toBe("BUTTON");
+    }
+  });
+
+  it("row 2 — desktop: identical pill declarations", async () => {
+    stubDesktopMedia();
+    const container = await render(<App />);
+    const pill = pillOf(container);
+
+    expect(pill.style.background).toBe("var(--capture-bg)");
+    expect(pill.style.border).toBe("");
+    expect(pill.style.borderTop).toBe("");
+    expect(pill.style.maxWidth).toBe("720px");
+    expect(pill.style.marginLeft).toBe("auto");
+    expect(pill.style.marginRight).toBe("auto");
+    expect(pill.style.borderRadius).toBe("999px");
+  });
+
+  it("row 3 — child order, placeholders, send type", async () => {
+    const container = await render(<App />);
+    const pill = pillOf(container);
+    const field = fieldOf(container);
+    const send = sendOf(container);
+
+    expect([...pill.children].map((el) => el.tagName)).toEqual([
+      "BUTTON", "BUTTON", "BUTTON", "TEXTAREA", "INPUT", "BUTTON",
+    ]);
+    expect(field.placeholder).toBe("uma tarefa...");
+    expect(queryLabel(container, "prazo")!.getAttribute("placeholder")).toBe("dd");
+    expect(send.type).toBe("submit");
+  });
+
+  it("row 4 — empty: borderRadius 999px, rows 1", async () => {
+    const container = await render(<App />);
+    const field = fieldOf(container);
+
+    expect(pillOf(container).style.borderRadius).toBe("999px");
+    expect(field.rows).toBe(1);
+  });
+
+  it("row 5 — two lines: borderRadius 26px, rows 2", async () => {
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "a\nb");
+
+    expect(pillOf(container).style.borderRadius).toBe("26px");
+    expect(field.rows).toBe(2);
+  });
+
+  it("row 6 — 7-line value: rows capped at 5, overflowY auto", async () => {
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "a\nb\nc\nd\ne\nf\ng");
+
+    expect(field.rows).toBe(5);
+    expect(field.style.overflowY).toBe("auto");
+  });
+
+  it("row 7 — back to one line: 999px, rows 1", async () => {
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x");
+
+    expect(pillOf(container).style.borderRadius).toBe("999px");
+    expect(field.rows).toBe(1);
+  });
+
+  it("row 8 — fine pointer: Enter prevents default, creates li, clears field, refocuses", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x");
+
+    const event = keyEvent("Enter");
+    await dispatch(event, field);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(container.querySelector("li")).not.toBeNull();
+    expect(field.value).toBe("");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("row 9 — fine pointer: Shift+Enter does not prevent, no li, text stays", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x");
+
+    const event = keyEvent("Enter", { shiftKey: true });
+    await dispatch(event, field);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(container.querySelector("li")).toBeNull();
+    expect(field.value).toBe("x");
+  });
+
+  it("row 10 — coarse pointer: Enter does not prevent, no li", async () => {
+    stubNoMatchMedia();
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x");
+
+    const event = keyEvent("Enter");
+    await dispatch(event, field);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(container.querySelector("li")).toBeNull();
+  });
+
+  it("row 11 — coarse: click send creates li with multiline text, clears field", async () => {
+    stubNoMatchMedia();
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x\ny");
+
+    await click(sendOf(container));
+
+    const li = container.querySelector("li");
+    expect(li).not.toBeNull();
+    expect(li!.querySelector("span")!.textContent).toContain("x\ny");
+    expect(field.value).toBe("");
+  });
+
+  it("row 12 — fine pointer: enterKeyHint is send", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const container = await render(<App />);
+    expect(fieldOf(container).getAttribute("enterkeyhint")).toBe("send");
+  });
+
+  it("row 13 — coarse: enterKeyHint is enter", async () => {
+    stubNoMatchMedia();
+    const container = await render(<App />);
+    expect(fieldOf(container).getAttribute("enterkeyhint")).toBe("enter");
+  });
+
+  it("row 14 — live flip: coarse→fine enables Enter send and flips enterKeyHint", async () => {
+    const rec = stubMediaWithChangeListener(() => false);
+    const container = await render(<App />);
+    const field = fieldOf(container);
+
+    // Start coarse
+    expect(field.getAttribute("enterkeyhint")).toBe("enter");
+
+    // Flip to fine
+    const fineListeners = rec.listeners.get("(pointer: fine)") ?? [];
+    expect(fineListeners.length).toBeGreaterThan(0);
+    act(() => {
+      fineListeners[0]({ matches: true } as MediaQueryListEvent);
+    });
+
+    expect(field.getAttribute("enterkeyhint")).toBe("send");
+
+    typeInto(field, "x");
+    const event = keyEvent("Enter");
+    await dispatch(event, field);
+    expect(event.defaultPrevented).toBe(true);
+    expect(container.querySelector("li")).not.toBeNull();
+  });
+
+  it("row 15 — Alt+2 switches Kind to college (via textarea focus)", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    field.focus();
+    typeInto(field, "abc");
+
+    await dispatch(keyEvent("2", { altKey: true }), field);
+
+    const chip = [...container.querySelectorAll("button")].find((b) => b.title === "Alt+2")!;
+    expect(chip.style.background).toBe(toRgb(CARD.college.light));
+    expect(field.value).toBe("abc");
+  });
+
+  it("row 16 — Ctrl+H from textarea opens archive (unchanged Leva 1a path)", async () => {
+    stubDesktopMedia();
+    vi.setSystemTime(new Date(2026, 8, 2));
+    seedStorage([
+      task({ id: "o1", text: "comprar leite" }),
+      task({ id: "d1", text: "entregar relatório", done: true, updatedAt: new Date(2026, 8, 2).getTime() }),
+    ]);
+    const container = await render(<App />);
+    const main = container.querySelector("main")!;
+    const region = main.parentElement as HTMLElement;
+    region.scrollTop = ARCHIVE_HIDDEN_OFFSET;
+
+    const field = fieldOf(container);
+    field.focus();
+
+    const event = keyEvent("H", { ctrlKey: true });
+    await dispatch(event, field);
+
+    expect(main.textContent).toContain("ocultar concluídas");
+  });
+
+  it("row 17 — empty: send disabled, circle dimmed", async () => {
+    const container = await render(<App />);
+    const send = sendOf(container);
+    const circle = circleOf(container);
+
+    expect(send.disabled).toBe(true);
+    expect(circle.style.background).toBe("var(--text-quiet)");
+  });
+
+  it("row 18 — whitespace-only still disabled", async () => {
+    const container = await render(<App />);
+    typeInto(fieldOf(container), "   \n ");
+
+    expect(sendOf(container).disabled).toBe(true);
+  });
+
+  it("row 19 — non-empty: send enabled, circle bright", async () => {
+    const container = await render(<App />);
+    typeInto(fieldOf(container), "x");
+    const send = sendOf(container);
+    const circle = circleOf(container);
+
+    expect(send.disabled).toBe(false);
+    expect(circle.style.background).toBe("var(--text-primary)");
+    expect(circle.style.color).toBe("var(--surface)");
+    expect(send.querySelector("svg")!.getAttribute("fill")).toBe("currentColor");
+  });
+
+  it("row 20 — send button and circle dimensions", async () => {
+    const container = await render(<App />);
+    const send = sendOf(container);
+    const circle = circleOf(container);
+
+    expect(send.style.minWidth).toBe("44px");
+    expect(send.style.minHeight).toBe("44px");
+    expect(circle.style.width).toBe("36px");
+    expect(circle.style.height).toBe("36px");
+  });
+
+  it("row 21 — failed write keeps text, day, and chip", async () => {
+    throwOnSetItem();
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x");
+    const prazo = queryLabel(container, "prazo") as HTMLInputElement;
+    typeInto(prazo, "27");
+
+    await click(sendOf(container));
+
+    expect(container.textContent).toContain(SAVE_ERROR);
+    expect(field.value).toBe("x");
+    expect(prazo.value).toBe("27");
+    // Chip unchanged (work is default)
+    const workChip = [...container.querySelectorAll("button")].find((b) => b.title === "Alt+1")!;
+    expect(workChip.style.background).not.toBe("transparent");
+  });
+
+  it("row 22 — successful capture clears fields, refocuses, shows task with deadline", async () => {
+    vi.setSystemTime(new Date(2026, 7, 22)); // 2026-08-22
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    typeInto(field, "x");
+    const prazo = queryLabel(container, "prazo") as HTMLInputElement;
+    typeInto(prazo, "27");
+
+    await click(sendOf(container));
+
+    const li = container.querySelector("li");
+    expect(li).not.toBeNull();
+    expect(li!.textContent).toContain("x");
+    expect(li!.textContent).toContain("27/08");
+    expect(field.value).toBe("");
+    expect(prazo.value).toBe("");
+    // Chip unchanged
+    const workChip = [...container.querySelectorAll("button")].find((b) => b.title === "Alt+1")!;
+    expect(workChip.style.background).not.toBe("transparent");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("row 23 — blank lines are normalised through the real path", async () => {
+    const container = await render(<App />);
+    typeInto(fieldOf(container), "a\n\n\n\nb");
+    await submitCapture(container);
+
+    const li = container.querySelector("li");
+    expect(li).not.toBeNull();
+    expect(li!.querySelector("span")!.textContent).toContain("a\n\nb");
+  });
+
+  it("row 24 — fine pointer: textarea focused after render", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const container = await render(<App />);
+    expect(document.activeElement).toBe(fieldOf(container));
+  });
+
+  it("row 25 — coarse: body focused after render (not textarea)", async () => {
+    stubNoMatchMedia();
+    await render(<App />);
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("E1 — matchMedia undefined: render does not throw; Enter is coarse (no prevent, no li)", async () => {
+    vi.stubGlobal("matchMedia", undefined);
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    expect(field).not.toBeNull();
+
+    typeInto(field, "x");
+    const event = keyEvent("Enter");
+    await dispatch(event, field);
+    expect(event.defaultPrevented).toBe(false);
+    expect(container.querySelector("li")).toBeNull();
+  });
+
+  it("E2 — whitespace submit via submitCapture: no li, no error", async () => {
+    const container = await render(<App />);
+    typeInto(fieldOf(container), "  \n");
+    await submitCapture(container);
+
+    expect(container.querySelector("li")).toBeNull();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 });

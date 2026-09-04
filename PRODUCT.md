@@ -27,8 +27,9 @@ on the desktop are one list, converged by background sync.
 ## Positioning
 
 Capture faster than any to-do app he has tried: text + optional two-digit deadline +
-one-key kind, submitted with Enter from an always-focused bar. No accounts, no
-projects, no settings screen. A neighbouring task app could copy the features but not
+one-key kind, submitted with Enter from an always-focused bar on the desktop, or the
+send button on the phone. No accounts, no projects, no settings screen. A neighbouring
+task app could copy the features but not
 the absence of everything else.
 
 ## Operating Context
