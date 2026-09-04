@@ -256,7 +256,7 @@ describe("storage refusing reads", () => {
     });
     const container = await render(<App />);
     expect(container.querySelector("main")!.textContent).toBe("");
-    expect(container.querySelector('input[placeholder="uma tarefa..."]')).not.toBeNull();
+    expect(container.querySelector('textarea[placeholder="uma tarefa..."]')).not.toBeNull();
   });
 });
 
@@ -1605,13 +1605,13 @@ describe("the capture pill (ticket 02)", () => {
   it("row 12 — fine pointer: enterKeyHint is send", async () => {
     stubMediaWithChangeListener((q) => q === "(pointer: fine)");
     const container = await render(<App />);
-    expect(fieldOf(container).enterKeyHint).toBe("send");
+    expect(fieldOf(container).getAttribute("enterkeyhint")).toBe("send");
   });
 
   it("row 13 — coarse: enterKeyHint is enter", async () => {
     stubNoMatchMedia();
     const container = await render(<App />);
-    expect(fieldOf(container).enterKeyHint).toBe("enter");
+    expect(fieldOf(container).getAttribute("enterkeyhint")).toBe("enter");
   });
 
   it("row 14 — live flip: coarse→fine enables Enter send and flips enterKeyHint", async () => {
@@ -1620,7 +1620,7 @@ describe("the capture pill (ticket 02)", () => {
     const field = fieldOf(container);
 
     // Start coarse
-    expect(field.enterKeyHint).toBe("enter");
+    expect(field.getAttribute("enterkeyhint")).toBe("enter");
 
     // Flip to fine
     const fineListeners = rec.listeners.get("(pointer: fine)") ?? [];
@@ -1629,7 +1629,7 @@ describe("the capture pill (ticket 02)", () => {
       fineListeners[0]({ matches: true } as MediaQueryListEvent);
     });
 
-    expect(field.enterKeyHint).toBe("send");
+    expect(field.getAttribute("enterkeyhint")).toBe("send");
 
     typeInto(field, "x");
     const event = keyEvent("Enter");
