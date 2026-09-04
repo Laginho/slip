@@ -20,7 +20,7 @@ import {
   typeInto,
   unmount,
 } from "./testing";
-import { CARD } from "./palette";
+import { CARD, INK_ON_LIGHT } from "./palette";
 
 /**
  * Integration tests for the write-failure boundary. Storage is authoritative: when a
@@ -57,6 +57,26 @@ async function submitCapture(container: HTMLElement): Promise<void> {
     new Event("submit", { bubbles: true, cancelable: true }),
     container.querySelector("form")!,
   );
+}
+
+/** Query shortcuts — the pill is always a <form>. */
+function pillOf(container: HTMLElement) {
+  return container.querySelector("form") as HTMLElement;
+}
+function fieldOf(container: HTMLElement) {
+  return queryLabel(container, "nova tarefa") as HTMLTextAreaElement;
+}
+function sendOf(container: HTMLElement) {
+  return queryLabel(container, "enviar") as HTMLButtonElement;
+}
+
+/** jsdom normalises hex to rgb(); compare via normalised form. */
+function toRgb(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 beforeEach(() => {
@@ -101,8 +121,12 @@ describe("Capture under a failing write", () => {
     throwOnSetItem();
     const container = await render(<App />);
 
-    const chip = [...container.querySelectorAll("button")].find((b) => b.textContent === "C")!;
-    await click(chip); // must not escape the bar as an uncaught exception
+    // Open the Kind pop-up and pick college; must not escape the bar as an uncaught exception.
+    await click(container.querySelector("button[aria-haspopup]") as HTMLButtonElement);
+    const option = [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === "F faculdade",
+    )!;
+    await click(option);
 
     // Losing only the stickiness is not a Task-write failure: no save error.
     expect(container.querySelector('[role="alert"]')).toBeNull();
@@ -456,13 +480,11 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
     expect(form.style.borderRadius, "pill radius").toBe("999px");
     // No div inside the pill — single render path
     expect(form.querySelector("div"), "no div inside pill").toBeNull();
-    // Only chip buttons carry var(--hairline) borders
+    // No hairline anywhere in the closed pill (chips gone, Kind pop-up closed)
     const hairlineEls = [...form.querySelectorAll<HTMLElement>("*")].filter((el) =>
       (el.style.border || "").includes("var(--hairline)"),
     );
-    for (const el of hairlineEls) {
-      expect(el.tagName).toBe("BUTTON");
-    }
+    expect(hairlineEls).toHaveLength(0);
 
     // Labels pt-BR
     const novaTarefa = queryLabel(container, "nova tarefa");
@@ -1089,7 +1111,7 @@ describe("dark chrome", () => {
     expect(banner!.style.color).toContain("var(--toast-ink)");
   });
 
-  it("6 — CaptureBar uses var(--capture-bg), no hairline on form, hairline only on chip buttons", async () => {
+  it("6 — CaptureBar uses var(--capture-bg), no hairline anywhere in the closed pill", async () => {
     stubNoMatchMedia();
     localStorage.clear();
     const container = await render(<App />);
@@ -1101,13 +1123,11 @@ describe("dark chrome", () => {
     // No border/borderTop on the pill
     expect(form.style.border, "no border on pill").toBe("");
     expect(form.style.borderTop, "no borderTop on pill").toBe("");
-    // The only elements whose style mentions var(--hairline) are the chip buttons
+    // Chips gone and the Kind pop-up closed: nothing in the pill mentions var(--hairline)
     const hairlineEls = [...form.querySelectorAll<HTMLElement>("*")].filter((el) =>
       (el.style.border || "").includes("var(--hairline)"),
     );
-    for (const el of hairlineEls) {
-      expect(el.tagName).toBe("BUTTON");
-    }
+    expect(hairlineEls).toHaveLength(0);
   });
 
   it("7 — UndoToast uses var(--toast-bg) / var(--toast-ink)", async () => {
@@ -1439,30 +1459,11 @@ describe("Ctrl+H toggles the Archive", () => {
  * --surface glyph, dimmed while blank.
  */
 describe("the capture pill (ticket 02)", () => {
-  /** Query shortcuts — the pill is always a <form>. */
-  function pillOf(container: HTMLElement) {
-    return container.querySelector("form") as HTMLElement;
-  }
-  function fieldOf(container: HTMLElement) {
-    return queryLabel(container, "nova tarefa") as HTMLTextAreaElement;
-  }
-  function sendOf(container: HTMLElement) {
-    return queryLabel(container, "enviar") as HTMLButtonElement;
-  }
   function circleOf(container: HTMLElement) {
     return sendOf(container).firstElementChild as HTMLElement;
   }
 
-  /** jsdom normalises hex to rgb(); compare via normalised form. */
-  function toRgb(hex: string): string {
-    const h = hex.replace("#", "");
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  it("row 1 — phone: pill style declarations, no div, hairline only on chips", async () => {
+  it("row 1 — phone: pill style declarations, no div, no hairline anywhere in the closed pill", async () => {
     stubNoMatchMedia();
     const container = await render(<App />);
     const pill = pillOf(container);
@@ -1475,12 +1476,11 @@ describe("the capture pill (ticket 02)", () => {
     expect(pill.style.marginRight).toBe("auto");
     expect(pill.style.borderRadius).toBe("999px");
     expect(pill.querySelector("div")).toBeNull();
+    // The chips are gone and the Kind pop-up is closed: no hairline anywhere in the pill.
     const hairlineEls = [...pill.querySelectorAll<HTMLElement>("*")].filter((el) =>
       (el.style.border || "").includes("var(--hairline)"),
     );
-    for (const el of hairlineEls) {
-      expect(el.tagName).toBe("BUTTON");
-    }
+    expect(hairlineEls).toHaveLength(0);
   });
 
   it("row 2 — desktop: identical pill declarations", async () => {
@@ -1504,7 +1504,7 @@ describe("the capture pill (ticket 02)", () => {
     const send = sendOf(container);
 
     expect([...pill.children].map((el) => el.tagName)).toEqual([
-      "BUTTON", "BUTTON", "BUTTON", "TEXTAREA", "INPUT", "BUTTON",
+      "BUTTON", "TEXTAREA", "INPUT", "BUTTON",
     ]);
     expect(field.placeholder).toBe("uma tarefa...");
     expect(queryLabel(container, "prazo")!.getAttribute("placeholder")).toBe("dd");
@@ -1647,8 +1647,12 @@ describe("the capture pill (ticket 02)", () => {
 
     await dispatch(keyEvent("2", { altKey: true }), field);
 
-    const chip = [...container.querySelectorAll("button")].find((b) => b.title === "Alt+2")!;
-    expect(chip.style.background).toBe(toRgb(CARD.college.light));
+    const dot = container.querySelector("button[aria-haspopup]") as HTMLButtonElement;
+    expect(dot.textContent).toBe("F");
+    expect(dot.title).toBe("Alt+2");
+    expect((dot.firstElementChild as HTMLElement).style.background).toBe(
+      toRgb(CARD.college.light),
+    );
     expect(field.value).toBe("abc");
   });
 
@@ -1712,7 +1716,7 @@ describe("the capture pill (ticket 02)", () => {
     expect(circle.style.height).toBe("36px");
   });
 
-  it("row 21 — failed write keeps text, day, and chip", async () => {
+  it("row 21 — failed write keeps text, day, and the Kind dot", async () => {
     throwOnSetItem();
     const container = await render(<App />);
     const field = fieldOf(container);
@@ -1725,9 +1729,11 @@ describe("the capture pill (ticket 02)", () => {
     expect(container.textContent).toContain(SAVE_ERROR);
     expect(field.value).toBe("x");
     expect(prazo.value).toBe("27");
-    // Chip unchanged (work is default)
-    const workChip = [...container.querySelectorAll("button")].find((b) => b.title === "Alt+1")!;
-    expect(workChip.style.background).not.toBe("transparent");
+    // Dot unchanged (work is default)
+    const dot = container.querySelector("button[aria-haspopup]") as HTMLButtonElement;
+    expect(dot.textContent).toBe("T");
+    expect(dot.title).toBe("Alt+1");
+    expect((dot.firstElementChild as HTMLElement).style.background).toBe(toRgb(CARD.work.light));
   });
 
   it("row 22 — successful capture clears fields, refocuses, shows task with deadline", async () => {
@@ -1746,9 +1752,10 @@ describe("the capture pill (ticket 02)", () => {
     expect(li!.textContent).toContain("27/08");
     expect(field.value).toBe("");
     expect(prazo.value).toBe("");
-    // Chip unchanged
-    const workChip = [...container.querySelectorAll("button")].find((b) => b.title === "Alt+1")!;
-    expect(workChip.style.background).not.toBe("transparent");
+    // Dot unchanged
+    const dot = container.querySelector("button[aria-haspopup]") as HTMLButtonElement;
+    expect(dot.textContent).toBe("T");
+    expect((dot.firstElementChild as HTMLElement).style.background).toBe(toRgb(CARD.work.light));
     expect(document.activeElement).toBe(field);
   });
 
@@ -1794,5 +1801,334 @@ describe("the capture pill (ticket 02)", () => {
 
     expect(container.querySelector("li")).toBeNull();
     expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+});
+
+/**
+ * Ticket 03 — the three Kind chips collapse into one dot that opens a pop-up.
+ *
+ * DOM contract: inside the pill, in document order, the dot button, the textarea, the
+ * day field and the send button. The pop-up is rendered only while open, so a closed
+ * pill carries no hairline and no div at all.
+ */
+describe("the Kind dot and pop-up (ticket 03)", () => {
+  const KIND_KEY = "capture/kind";
+  const OPTION_TEXT = ["T trabalho", "F faculdade", "C casa"];
+  const HUES = [CARD.work.light, CARD.college.light, CARD.chore.light];
+
+  function dotOf(container: HTMLElement) {
+    return container.querySelector("button[aria-haspopup]") as HTMLButtonElement;
+  }
+  function popupOf(container: HTMLElement) {
+    return container.querySelector('[aria-label="tipo"]') as HTMLElement | null;
+  }
+  function optionsOf(container: HTMLElement) {
+    return [...(popupOf(container)?.querySelectorAll("button") ?? [])] as HTMLButtonElement[];
+  }
+  /** Both the dot and each option wrap their letter in a circle span. */
+  function circleOf(button: HTMLElement) {
+    return button.firstElementChild as HTMLElement;
+  }
+  async function openPopup(container: HTMLElement): Promise<HTMLButtonElement[]> {
+    await click(dotOf(container));
+    return optionsOf(container);
+  }
+
+  it("row 1 — fresh storage: one dot, no chips, work letter, hue, title and 44x44/28px sizing", async () => {
+    const container = await render(<App />);
+    const pill = pillOf(container);
+
+    // The three chips are gone: the closed pill holds exactly the dot and the send button.
+    expect(pill.querySelectorAll("button")).toHaveLength(2);
+
+    const dot = dotOf(container);
+    expect(dot.textContent).toBe("T");
+    expect(dot.title).toBe("Alt+1");
+    expect(dot.type).toBe("button");
+    expect(dot.getAttribute("aria-haspopup")).toBe("true");
+    expect(dot.getAttribute("aria-expanded")).toBe("false");
+    expect(dot.style.minWidth).toBe("44px");
+    expect(dot.style.minHeight).toBe("44px");
+
+    const circle = circleOf(dot);
+    expect(circle.style.width).toBe("28px");
+    expect(circle.style.height).toBe("28px");
+    expect(circle.style.borderRadius).toBe("999px");
+    expect(circle.style.background).toBe(toRgb(CARD.work.light));
+    expect(circle.style.color).toBe(toRgb(INK_ON_LIGHT));
+  });
+
+  it("row 2 — stored chore: dot C, title Alt+3, chore hue", async () => {
+    localStorage.setItem(KIND_KEY, "chore");
+    const container = await render(<App />);
+    const dot = dotOf(container);
+
+    expect(dot.textContent).toBe("C");
+    expect(dot.title).toBe("Alt+3");
+    expect(circleOf(dot).style.background).toBe(toRgb(CARD.chore.light));
+  });
+
+  it("row 3 — nothing renders the pop-up until it is opened", async () => {
+    const container = await render(<App />);
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).getAttribute("aria-expanded")).toBe("false");
+
+    localStorage.setItem(KIND_KEY, "chore");
+    const seeded = await render(<App />);
+    expect(popupOf(seeded)).toBeNull();
+  });
+
+  it("row 4 — click the dot: expanded, three lettered options above the dot, current one pressed", async () => {
+    const container = await render(<App />);
+    const options = await openPopup(container);
+
+    expect(dotOf(container).getAttribute("aria-expanded")).toBe("true");
+
+    const popup = popupOf(container)!;
+    expect(popup.getAttribute("role")).toBe("group");
+    expect(popup.style.position).toBe("absolute");
+    expect(popup.style.bottom).toBe("100%");
+    expect(popup.style.background).toBe("var(--capture-bg)");
+    expect(popup.style.border).toBe("1px solid var(--hairline)");
+
+    expect(options.map((b) => b.textContent)).toEqual(OPTION_TEXT);
+    expect(options.map((b) => b.type)).toEqual(["button", "button", "button"]);
+    expect(options.map((b) => b.getAttribute("aria-pressed"))).toEqual(["true", "false", "false"]);
+
+    options.forEach((option, i) => {
+      const circle = circleOf(option);
+      expect(circle.style.width).toBe("28px");
+      expect(circle.style.height).toBe("28px");
+      expect(circle.style.borderRadius).toBe("999px");
+      expect(circle.style.background).toBe(toRgb(HUES[i]));
+      expect(circle.style.color).toBe(toRgb(INK_ON_LIGHT));
+    });
+  });
+
+  it("row 5 — choosing faculdade selects college, closes, persists and refocuses the field", async () => {
+    const container = await render(<App />);
+    const options = await openPopup(container);
+    await click(options[1]);
+
+    expect(popupOf(container)).toBeNull();
+    const dot = dotOf(container);
+    expect(dot.textContent).toBe("F");
+    expect(dot.title).toBe("Alt+2");
+    expect(dot.getAttribute("aria-expanded")).toBe("false");
+    expect(localStorage.getItem(KIND_KEY)).toBe("college");
+    expect(document.activeElement).toBe(fieldOf(container));
+  });
+
+  it("row 6 — Escape on an option or on the dot closes without changing the Kind", async () => {
+    const container = await render(<App />);
+    const options = await openPopup(container);
+    await dispatch(keyEvent("Escape"), options[1]);
+
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).textContent).toBe("T");
+    expect(localStorage.getItem(KIND_KEY)).toBeNull();
+    expect(document.activeElement).toBe(fieldOf(container));
+
+    await click(dotOf(container));
+    await dispatch(keyEvent("Escape"), dotOf(container));
+
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).textContent).toBe("T");
+    expect(localStorage.getItem(KIND_KEY)).toBeNull();
+  });
+
+  it("row 7 — pointerdown on the list region closes without changing the Kind", async () => {
+    localStorage.setItem(KIND_KEY, "chore");
+    const container = await render(<App />);
+    await openPopup(container);
+
+    await dispatch(new Event("pointerdown", { bubbles: true }), container.querySelector("main")!);
+
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).textContent).toBe("C");
+    expect(localStorage.getItem(KIND_KEY)).toBe("chore");
+  });
+
+  it("row 8 — pointerdown inside the textarea counts as outside: closes without change", async () => {
+    localStorage.setItem(KIND_KEY, "chore");
+    const container = await render(<App />);
+    await openPopup(container);
+
+    await dispatch(new Event("pointerdown", { bubbles: true }), fieldOf(container));
+
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).textContent).toBe("C");
+    expect(localStorage.getItem(KIND_KEY)).toBe("chore");
+  });
+
+  it("row 9 — hover and focus on the dot never open the pop-up", async () => {
+    const container = await render(<App />);
+    const dot = dotOf(container);
+
+    for (const type of ["mouseenter", "mouseover", "pointerenter", "pointerover"]) {
+      await dispatch(new Event(type, { bubbles: true }), dot);
+      expect(popupOf(container), type).toBeNull();
+    }
+    await act(async () => dot.focus());
+
+    expect(popupOf(container)).toBeNull();
+    expect(dot.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("row 10 — Alt+3 from the textarea selects chore without opening the pop-up", async () => {
+    const container = await render(<App />);
+    const field = fieldOf(container);
+    await act(async () => field.focus());
+
+    await dispatch(keyEvent("3", { altKey: true }), field);
+
+    expect(popupOf(container)).toBeNull();
+    const dot = dotOf(container);
+    expect(dot.textContent).toBe("C");
+    expect(dot.title).toBe("Alt+3");
+    expect(localStorage.getItem(KIND_KEY)).toBe("chore");
+  });
+
+  it("row 11 — Alt+1 with the pop-up open selects work and closes it", async () => {
+    localStorage.setItem(KIND_KEY, "chore");
+    const container = await render(<App />);
+    await openPopup(container);
+
+    await dispatch(keyEvent("1", { altKey: true }), dotOf(container));
+
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).textContent).toBe("T");
+    expect(localStorage.getItem(KIND_KEY)).toBe("work");
+  });
+
+  it("row 12 — a Kind chosen in the pop-up is the one sent, and stays selected after", async () => {
+    const container = await render(<App />);
+    const options = await openPopup(container);
+    await click(options[1]);
+
+    typeInto(fieldOf(container), "prova de história");
+    await click(sendOf(container));
+
+    const [stored] = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(stored.kind).toBe("college");
+    expect(dotOf(container).textContent).toBe("F");
+  });
+
+  it("row 13 — a throwing setItem still applies casa for the session, with no banner", async () => {
+    throwOnSetItem();
+    const container = await render(<App />);
+    const options = await openPopup(container);
+    await click(options[2]);
+
+    expect(dotOf(container).textContent).toBe("C");
+    expect(popupOf(container)).toBeNull();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+
+    vi.mocked(Storage.prototype.setItem).mockRestore();
+    typeInto(fieldOf(container), "lavar louça");
+    await click(sendOf(container));
+
+    const [stored] = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(stored.kind).toBe("chore");
+  });
+
+  it("row 14 — document order dot, textarea, day field, send; every control tabIndex 0", async () => {
+    const container = await render(<App />);
+    typeInto(fieldOf(container), "x"); // an enabled send button is part of the tab ring
+    const pill = pillOf(container);
+
+    const closed = [...pill.querySelectorAll<HTMLElement>("button, textarea, input")];
+    expect(closed).toHaveLength(4);
+    expect(closed[0]).toBe(dotOf(container));
+    expect(closed[1]).toBe(fieldOf(container));
+    expect(closed[2]).toBe(queryLabel(container, "prazo"));
+    expect(closed[3]).toBe(sendOf(container));
+    for (const el of closed) expect(el.tabIndex).toBe(0);
+
+    const options = await openPopup(container);
+    expect(options).toHaveLength(3);
+    for (const option of options) expect(option.tabIndex).toBe(0);
+  });
+
+  it("row 15 — Enter/Space on the dot or an option activates the button, never the form", async () => {
+    const container = await render(<App />);
+    typeInto(fieldOf(container), "x");
+
+    // The dot is a button: the pill's Enter-to-send must not fire from it.
+    const dotEnter = keyEvent("Enter");
+    await dispatch(dotEnter, dotOf(container));
+    expect(dotEnter.defaultPrevented).toBe(false);
+    expect(container.querySelector("li")).toBeNull();
+
+    const options = await openPopup(container);
+    const optionEnter = keyEvent("Enter");
+    await dispatch(optionEnter, options[1]);
+    expect(optionEnter.defaultPrevented).toBe(false);
+    expect(container.querySelector("li")).toBeNull();
+
+    const optionSpace = keyEvent(" ");
+    await dispatch(optionSpace, options[1]);
+    expect(optionSpace.defaultPrevented).toBe(false);
+    expect(container.querySelector("li")).toBeNull();
+
+    // jsdom never synthesises the click a real Enter/Space produces; model the activation.
+    await activate(options[1]);
+    expect(popupOf(container)).toBeNull();
+    expect(dotOf(container).textContent).toBe("F");
+    expect(localStorage.getItem(KIND_KEY)).toBe("college");
+    expect(document.activeElement).toBe(fieldOf(container));
+  });
+
+  it("row 16 — desktop: the same dot and pop-up declarations (profile-independent)", async () => {
+    stubDesktopMedia();
+    const container = await render(<App />);
+    const dot = dotOf(container);
+
+    expect(dot.textContent).toBe("T");
+    expect(dot.title).toBe("Alt+1");
+    expect(dot.style.minWidth).toBe("44px");
+    expect(dot.style.minHeight).toBe("44px");
+    expect(circleOf(dot).style.background).toBe(toRgb(CARD.work.light));
+
+    const options = await openPopup(container);
+    expect(options.map((b) => b.textContent)).toEqual(OPTION_TEXT);
+    expect(options.map((b) => b.getAttribute("aria-pressed"))).toEqual(["true", "false", "false"]);
+    expect(popupOf(container)!.style.background).toBe("var(--capture-bg)");
+    expect(popupOf(container)!.style.border).toBe("1px solid var(--hairline)");
+  });
+
+  it("row 17 — dark: pop-up on the capture ground with a hairline; circles keep the Kind hues", async () => {
+    stubDarkMedia();
+    const container = await render(<App />);
+    const options = await openPopup(container);
+    const popup = popupOf(container)!;
+
+    expect(popup.style.background).toBe("var(--capture-bg)");
+    expect(popup.style.border).toBe("1px solid var(--hairline)");
+    options.forEach((option, i) => {
+      expect(circleOf(option).style.background).toBe(toRgb(HUES[i]));
+      expect(circleOf(option).style.color).toBe(toRgb(INK_ON_LIGHT));
+    });
+    expect(circleOf(dotOf(container)).style.background).toBe(toRgb(CARD.work.light));
+    expect(circleOf(dotOf(container)).style.color).toBe(toRgb(INK_ON_LIGHT));
+  });
+
+  it("E1 — matchMedia undefined: the dot renders and the pop-up opens without throwing", async () => {
+    vi.stubGlobal("matchMedia", undefined);
+    const container = await render(<App />);
+    expect(dotOf(container)).not.toBeNull();
+
+    const options = await openPopup(container);
+    expect(options.map((b) => b.textContent)).toEqual(OPTION_TEXT);
+  });
+
+  it("E2 — a stored Kind outside the three falls back to work", async () => {
+    localStorage.setItem(KIND_KEY, "banana");
+    const container = await render(<App />);
+    const dot = dotOf(container);
+
+    expect(dot.textContent).toBe("T");
+    expect(dot.title).toBe("Alt+1");
+    expect(circleOf(dot).style.background).toBe(toRgb(CARD.work.light));
   });
 });
