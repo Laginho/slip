@@ -108,8 +108,8 @@ sans-serif`) — native feel, zero webfont cost.
 ### Hierarchy
 - **Task text** (400, 16px, 1.3): the Card's content; also the minimum size that
   stops iOS zooming a focused input.
-- **Meta/label** (700 bold for "desfazer" and overdue labels; 13–14px for chips,
-  toasts, archive rows): quiet support, underlined when tappable.
+- **Meta/label** (700 bold for "desfazer" and overdue labels; 13–14px for the Kind
+  pop-up, toasts, archive rows): quiet support, underlined when tappable.
 
 ## Layout
 
@@ -136,8 +136,9 @@ via fixed positioning alone, not elevation effects.
 
 Rounded rectangles everywhere, one radius family: 10px on Cards and notifications;
 the fully-round 999px pill is the composer while it holds one line (26px once it
-grows) and the Kind chips. Inputs are bare (no visible field box) — focus lives in the
-composition, not a border.
+grows). The Kind dot and the option circles inside its pop-up are fully round too, at
+28px. Inputs are bare (no visible field box) — focus lives in the composition, not a
+border.
 
 ## Components
 
@@ -152,12 +153,17 @@ composition, not a border.
 ### Capture bar
 - A pill floating over the paper on both profiles, centred, ≤720px, `--capture-bg`,
   no border, 12px above the safe area.
-- Contains the Kind chips, a textarea growing to five lines then scrolling ("uma
-  tarefa..."), the two-digit day field ("dd"), and a 44px send button ("enviar":
-  36px circle in `--text-primary`, paper-plane glyph in `--surface`, dimmed in
-  `--text-quiet` while blank).
+- Contains the Kind dot — a 44px button holding a 28px circle in the selected Kind's
+  light hue with its letter (T trabalho, F faculdade, C casa) — a textarea growing to
+  five lines then scrolling ("uma tarefa..."), the two-digit day field ("dd"), and a
+  44px send button ("enviar": 36px circle in `--text-primary`, paper-plane glyph in
+  `--surface`, dimmed in `--text-quiet` while blank).
+- Tapping or clicking the dot opens a pop-up above it on `--capture-bg` with a hairline
+  border, listing the three Kinds as lettered circles beside their words, the selected
+  one pressed. Choosing closes the pop-up and returns focus to the textarea; Escape or a
+  pointer press outside also closes it. It never opens on hover.
 - Enter sends under a fine pointer and Shift+Enter breaks, under a coarse pointer
-  Enter breaks and the button sends; Alt+1/2/3 switches Kind.
+  Enter breaks and the button sends; Alt+1/2/3 switches Kind without opening the pop-up.
 
 ### Toast / banner
 - Charcoal rounded strip (10px), ivory text, floating over the top edge, centred on

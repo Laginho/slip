@@ -21,11 +21,30 @@ import { useMediaQuery } from "../useMediaQuery";
  *
  * The store call happens in App via onCapture -- mutations run outside setState, so
  * StrictMode double-invocation can never mint two ids for one create.
+ *
+ * The Kind is one dot, not three chips: a 28px circle in the selected Kind's light hue
+ * carrying its letter, which opens a pop-up above the pill listing the three Kinds with
+ * their words. Click or tap only -- never hover; Escape or a pointerdown outside closes.
  */
 
 const KIND_STORAGE_KEY = "capture/kind";
 
-const CHIP_LABEL: Record<Kind, string> = { work: "W", college: "C", chore: "Ch" };
+const LETTER: Record<Kind, string> = { work: "T", college: "F", chore: "C" };
+
+const WORD: Record<Kind, string> = { work: "trabalho", college: "faculdade", chore: "casa" };
+
+/** The lettered circle, shared by the dot and by every pop-up option. */
+function circle(k: Kind) {
+  return (
+    <span
+      style={{ width: 28, height: 28, borderRadius: 999, display: "inline-flex",
+               alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600,
+               background: CARD[k].light, color: INK_ON_LIGHT }}
+    >
+      {LETTER[k]}
+    </span>
+  );
+}
 
 function storedKind(): Kind {
   try {
@@ -51,8 +70,11 @@ export function CaptureBar({ onCapture }: Props) {
   const [text, setText] = useState("");
   const [dayStr, setDayStr] = useState("");
   const [kind, setKind] = useState<Kind>(storedKind);
+  const [open, setOpen] = useState(false);
 
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const dotRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   const fine = useMediaQuery("(pointer: fine)");
 
@@ -60,11 +82,26 @@ export function CaptureBar({ onCapture }: Props) {
     if (fine) textRef.current?.focus();
   }, []);
 
+  // Anything pressed outside the pop-up and its dot closes it -- including the textarea,
+  // so a tap that goes back to typing costs one gesture, not two.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: Event) => {
+      const target = event.target as Node | null;
+      if (target === null) return;
+      if (popupRef.current?.contains(target) || dotRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
   const blank = text.trim() === "";
   const lines = text.split("\n").length;
 
   const selectKind = (selected: Kind) => {
     setKind(selected);
+    setOpen(false);
     try {
       localStorage.setItem(KIND_STORAGE_KEY, selected);
     } catch {
@@ -86,7 +123,15 @@ export function CaptureBar({ onCapture }: Props) {
   };
 
   const onKeyDown = (event: ReactKeyboardEvent) => {
+    if (event.key === "Escape" && open) {
+      setOpen(false);
+      textRef.current?.focus();
+      return;
+    }
     if (event.key === "Enter") {
+      // Buttons keep their native Enter/Space activation: the dot and the pop-up options
+      // must open or select, never send.
+      if (event.target instanceof HTMLButtonElement) return;
       // In the textarea Enter sends only under a fine pointer and without Shift; otherwise
       // the browser inserts the break. From the day field Enter still sends, as before.
       if (event.target === textRef.current && (event.shiftKey || !fine)) return;
@@ -107,6 +152,7 @@ export function CaptureBar({ onCapture }: Props) {
       }}
       style={{
         flex: "none",
+        position: "relative",
         display: "flex",
         alignItems: "flex-end",
         gap: 6,
@@ -122,29 +168,47 @@ export function CaptureBar({ onCapture }: Props) {
         borderRadius: lines <= 1 ? 999 : 26,
       }}
     >
-      {KINDS.map((k) => {
-        const selected = k === kind;
-        return (
-          <button
-            key={k}
-            type="button"
-            onClick={() => selectKind(k)}
-            title={`Alt+${KINDS.indexOf(k) + 1}`}
-            style={{
-              flex: "none",
-              fontFamily: "inherit",
-              border: "1px solid var(--hairline)",
-              borderRadius: 999,
-              padding: "8px 14px",
-              fontSize: 14,
-              background: selected ? CARD[k].light : "transparent",
-              color: selected ? INK_ON_LIGHT : "var(--text-quiet)",
-            }}
-          >
-            {CHIP_LABEL[k]}
-          </button>
-        );
-      })}
+      <button
+        ref={dotRef}
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        title={`Alt+${KINDS.indexOf(kind) + 1}`}
+        onClick={() => setOpen((o) => !o)}
+        style={{ flex: "none", minWidth: 44, minHeight: 44, padding: 0, border: "none",
+                 background: "transparent", display: "inline-flex", alignItems: "center",
+                 justifyContent: "center", cursor: "pointer", fontFamily: "inherit" }}
+      >
+        {circle(kind)}
+      </button>
+
+      {open && (
+        <div
+          ref={popupRef}
+          role="group"
+          aria-label="tipo"
+          style={{ position: "absolute", bottom: "100%", left: 6, marginBottom: 6,
+                   display: "flex", flexDirection: "column", gap: 2, padding: 6,
+                   borderRadius: 10, background: "var(--capture-bg)",
+                   border: "1px solid var(--hairline)" }}
+        >
+          {KINDS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={k === kind}
+              onClick={() => selectKind(k)}
+              style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44,
+                       padding: "0 10px", border: "none", borderRadius: 8,
+                       background: "transparent", color: "inherit", fontFamily: "inherit",
+                       fontSize: 14, cursor: "pointer", textAlign: "left" }}
+            >
+              {circle(k)}
+              {" " + WORD[k]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <textarea
         ref={textRef}
