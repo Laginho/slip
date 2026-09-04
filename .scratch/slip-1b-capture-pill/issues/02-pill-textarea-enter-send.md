@@ -20,15 +20,15 @@ render path; Enter rules from the primary pointer; Send button; Day field; Docs)
 
 **Blocked by:** 01 (store normalisation and the media-query hook).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] One pill element on both profiles: no `wide` fork, no strip, no hairline; declared `maxWidth` 720, centred, `--capture-bg`
-- [ ] Textarea replaces the input; rows derive from the value's line count, capped at 5, `overflowY` auto past 5; radius 999 at one line, 26 otherwise
-- [ ] Enter rules and `enterKeyHint` follow `(pointer: fine)` live; Alt+1/2/3 still select Kind; Ctrl+H still bubbles
-- [ ] Send button: `type="submit"`, `aria-label="enviar"`, disabled when blank, declared 44×44 minimum, SVG glyph uses `currentColor`/tokens only
-- [ ] Day field keeps its behaviour and gains `placeholder="dd"`
-- [ ] Failing write keeps everything typed; successful send clears text and day, keeps Kind, refocuses
-- [ ] DESIGN.md amended; no hex literal outside the palette module; whole suite green; `tsc -b` clean
+- [x] One pill element on both profiles: no `wide` fork, no strip, no hairline; declared `maxWidth` 720, centred, `--capture-bg`
+- [x] Textarea replaces the input; rows derive from the value's line count, capped at 5, `overflowY` auto past 5; radius 999 at one line, 26 otherwise
+- [x] Enter rules and `enterKeyHint` follow `(pointer: fine)` live; Alt+1/2/3 still select Kind; Ctrl+H still bubbles
+- [x] Send button: `type="submit"`, `aria-label="enviar"`, disabled when blank, declared 44×44 minimum, SVG glyph uses `currentColor`/tokens only
+- [x] Day field keeps its behaviour and gains `placeholder="dd"`
+- [x] Failing write keeps everything typed; successful send clears text and day, keeps Kind, refocuses
+- [x] DESIGN.md amended; no hex literal outside the palette module; whole suite green; `tsc -b` clean
 
 ## Test Case Matrix
 
