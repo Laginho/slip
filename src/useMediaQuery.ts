@@ -18,10 +18,6 @@ export function useMediaQuery(query: string): boolean {
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia(query);
-    // A stub may answer matches without implementing the listener surface
-    // (the pre-hook Card tests do). Then there is nothing to subscribe to and
-    // the initial value stands, as in the absent-matchMedia case.
-    if (typeof mq.addEventListener !== "function") return;
     const onChange = (event: MediaQueryListEvent) => setMatches(event.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);

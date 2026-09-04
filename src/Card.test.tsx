@@ -146,10 +146,7 @@ describe("keyboard-accessible actions", () => {
   });
 
   it("still reveals via genuine mouse hover where hover capability exists", async () => {
-    vi.stubGlobal(
-      "matchMedia",
-      (query: string) => ({ matches: query === "(hover: hover)", media: query }),
-    );
+    stubMediaWithChangeListener((query) => query === "(hover: hover)");
     const { container } = await renderCard();
     const li = container.querySelector("li")!;
     const concluir = queryLabel(container, "Concluir") as HTMLButtonElement;
@@ -644,12 +641,8 @@ describe("gestures starting on a revealed action button", () => {
 
   it("M9 — fine-pointer: button press fires action, body tap opens editor after delay", async () => {
     vi.useFakeTimers();
-    vi.stubGlobal(
-      "matchMedia",
-      (query: string) => ({
-        matches: query === "(hover: hover)" || query === "(pointer: fine)",
-        media: query,
-      }),
+    stubMediaWithChangeListener(
+      (query) => query === "(hover: hover)" || query === "(pointer: fine)",
     );
     try {
       const onComplete = vi.fn(() => true);
