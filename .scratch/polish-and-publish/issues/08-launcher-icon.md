@@ -22,13 +22,13 @@ Context: ticket `07-validate-installs.md` (Comments); `.scratch/task-tracker/spe
 
 **Blocked by:** nada.
 
-**Status:** ready-for-human
+**Status:** complete
 
 - [x] Ícone maskable full-bleed, conteúdo na zona segura de 80%
 - [x] Ícones any 192/512 sem pré-recorte circular
 - [x] Apple touch icon 180 full-bleed, mesma arte do maskable
 - [x] Conferido no preview de maskable (DevTools ou maskable.app)
-- [ ] Reinstalado no Android e conferido contra o outline do launcher
+- [x] Reinstalado no Android e conferido contra o outline do launcher
 
 ## Comments
 
@@ -83,3 +83,8 @@ Android.
 
 - Reinstalar o WebAPK pelo Chrome no Android e conferir o ícone contra a máscara real do
   launcher. Até essa confirmação, não marcar o Ticket 08 como `complete`.
+
+### Fechamento 2026-09-04
+
+Reinstalado no Android via Chrome (WebAPK) e conferido contra o outline do launcher pelo
+usuário: OK. PR #17. Ticket `complete`.

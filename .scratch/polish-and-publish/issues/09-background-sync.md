@@ -24,11 +24,11 @@ Context: ticket `07-validate-installs.md` (Comments);
 
 **Blocked by:** nada.
 
-**Status:** ready-for-human
+**Status:** complete
 
 - [x] Decidido o alcance (evento online vs Background Sync no SW) — candidato 1, ver Comments
 - [x] Implementado com teste cobrindo o cenário do ticket 07
-- [ ] Validado hands-on: mudança offline no celular sobe sem reabrir o app (ou a
+- [x] Validado hands-on: mudança offline no celular sobe sem reabrir o app (ou a
       limitação residual fica documentada aqui)
 
 ## Comments
@@ -64,3 +64,10 @@ Ciclo PTMR: handoff `01-to-plan-09.md` (retorno `02`), base `feat/09-background-
   para fora) → rede de volta → o PC com o Slip aberto mostra a tarefa após trocar de aba, sem
   reabrir o app no celular. Repetir com o app deslizado para fora: esperado falhar — essa é a
   limitação residual a registrar aqui.
+
+### Fechamento 2026-09-04
+
+Validação hands-on no Android feita pelo usuário; PR #18 merged. Limitação residual registrada:
+com o processo do app morto pelo SO enquanto offline, a mudança só sobe na reabertura — o
+candidato 2 (Background Sync no SW) vira ticket novo apenas se isso incomodar no uso real.
+Ticket `complete`.
