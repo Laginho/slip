@@ -61,7 +61,7 @@ no theme toggle; the chrome follows the system colour scheme; the nine Card swat
 **Key Characteristics:**
 - Colour = meaning: every saturated value encodes a Task Kind or Urgency step.
 - Everything else stays out of the way: quiet greys, hairlines, no shadows.
-- Chat-app ergonomics: a pinned white bar at the bottom is the product's front door.
+- Chat-app ergonomics: a floating pill on the capture ground is the product's front door.
 
 ## Colors
 
@@ -82,7 +82,7 @@ no theme toggle; the chrome follows the system colour scheme; the nine Card swat
 ### Neutral
 - **Warm paper** (`surface #f5f4f2`): the only background the app has; also the PWA
   theme-color (injected into the manifest at build time).
-- **Capture white** (`capture-bg #ffffff`): the bottom bar's ground, lifting it off the paper.
+- **Capture white** (`capture-bg #ffffff`): the pill's ground, lifting it off the paper.
 - **Ink** (`text-primary / ink-on-light #1a1a1a`): text on light and medium steps.
 - **Quiet grey** (`text-quiet #8a8783`): placeholders, links, empty states, archive rows.
 - **Hairline** (`hairline #e2e0dc`): the single border colour in the product.
@@ -135,7 +135,7 @@ via fixed positioning alone, not elevation effects.
 ## Shapes
 
 Rounded rectangles everywhere, one radius family: 10px on Cards and notifications;
-the fully-round 999px pill reserved for Kind chips. Inputs are bare (no visible
+the fully-round 999px pill is the composer while it holds one line (26px once it grows) and the Kind chips. Inputs are bare (no visible
 field box) — focus lives in the composition, not a border.
 
 ## Components
@@ -149,11 +149,14 @@ field box) — focus lives in the composition, not a border.
   Card out with a 200ms flight (reduced-motion collapses it).
 
 ### Capture bar
-- White strip pinned to the viewport bottom, full width, hairline top border,
-  safe-area padding below.
-- Contains: three round Kind chips (selected chip fills with its light hue), the
-  always-focused text input ("uma tarefa..."), and a two-digit day field.
-- Enter submits; Alt+1/2/3 switches Kind.
+- A pill floating over the paper on both profiles, centred, ≤720px, `--capture-bg`,
+  no border, 12px above the safe area.
+- Contains the Kind chips, a textarea growing to five lines then scrolling ("uma
+  tarefa..."), the two-digit day field ("dd"), and a 44px send button ("enviar":
+  36px circle in `--text-primary`, paper-plane glyph in `--surface`, dimmed in
+  `--text-quiet` while blank).
+- Enter sends under a fine pointer and Shift+Enter breaks, under a coarse pointer
+  Enter breaks and the button sends; Alt+1/2/3 switches Kind.
 
 ### Toast / banner
 - Charcoal rounded strip (10px), ivory text, floating over the top edge, centred on
@@ -167,7 +170,7 @@ field box) — focus lives in the composition, not a border.
 ### Do:
 - **Do** keep every colour exactly as listed above; steer typography, spacing, and
   layout instead.
-- **Do** keep the capture bar pinned, white, and reachable at all times.
+- **Do** keep the capture bar pinned, floating on the capture ground, and reachable at all times.
 - **Do** preserve bottom-anchoring of the phone list and the wall's uneven bottoms.
 - **Do** keep gestures and their keyboard equivalents working on any new layout.
 

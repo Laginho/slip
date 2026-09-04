@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Kind } from "../store";
 import { KINDS } from "../store";
 import { CARD, INK_ON_LIGHT } from "../palette";
 import { inferDeadline } from "../urgency";
+import { useMediaQuery } from "../useMediaQuery";
 
 /**
  * Capture: the WhatsApp bar. Type, Enter, done -- anything that adds a step to that
  * path is wrong. Owns the sticky selected Kind (persisted under its own key: it is
  * not a Task, so it does not go through the store) and an optional day-of-month field
- * whose full date is inferred at capture time.
+ * whose full date is inferred at capture time. The bar is a floating pill on both
+ * profiles; Enter sends only under a fine pointer, the send button is the phone's
+ * path; `enterKeyHint` follows the same rule.
  *
  * Shortcuts are Alt+1/2/3, not the bare digits the ticket first asked for: the input
  * must be focused on launch and stay focused, and a bare "1" would be swallowed as a
@@ -37,13 +40,6 @@ function storedKind(): Kind {
 
 type Props = {
   /**
-   * The screen's breakpoint, owned by App. `false` is the phone (<900px): the bar's
-   * contents sit inside a white rounded composer with a hairline, itself in the white
-   * pinned strip. `true` is the desktop wall (>=900px): the flat full-width strip,
-   * chips and inputs directly on it. Same shortcuts, keying and error handling.
-   */
-  wide: boolean;
-  /**
    * Returns whether the Task was persisted. A false return -- storage refused the
    * write -- must leave everything the user typed in place for a retry; the caller
    * (App) owns the error message.
@@ -51,32 +47,21 @@ type Props = {
   onCapture: (text: string, kind: Kind, deadline: string | null) => boolean;
 };
 
-// The conversation composer for the phone: a white rounded bubble with a hairline,
-// sitting on the white pinned strip below it.
-const COMPOSER: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "6px 12px",
-  borderRadius: 16,
-  border: "1px solid var(--hairline)",
-  background: "var(--capture-bg)",
-};
-
-export function CaptureBar({ wide, onCapture }: Props) {
+export function CaptureBar({ onCapture }: Props) {
   const [text, setText] = useState("");
   const [dayStr, setDayStr] = useState("");
   const [kind, setKind] = useState<Kind>(storedKind);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+
+  const fine = useMediaQuery("(pointer: fine)");
 
   useEffect(() => {
-    // Launch focus scoped to desktop: on the phone an autofocus pops the keyboard
-    // over the list before the user has asked to capture anything.
-    if (window.matchMedia("(pointer: fine)").matches) inputRef.current?.focus();
+    if (fine) textRef.current?.focus();
   }, []);
+
+  const blank = text.trim() === "";
+  const lines = text.split("\n").length;
 
   const selectKind = (selected: Kind) => {
     setKind(selected);
@@ -85,24 +70,26 @@ export function CaptureBar({ wide, onCapture }: Props) {
     } catch {
       // The selection still applies for this session; only the stickiness is lost.
     }
-    inputRef.current?.focus();
+    textRef.current?.focus();
   };
 
   const capture = () => {
-    if (text.trim() === "") return;
+    if (blank) return;
     const deadline =
       dayStr === "" ? null : inferDeadline(Number(dayStr), new Date());
     // Clearing the fields *is* the success signal: when storage refused the write the
     // input keeps text, kind and deadline exactly as typed, so a retry costs nothing.
-    if (!onCapture(text.trim(), kind, deadline)) return;
+    if (!onCapture(text, kind, deadline)) return;
     setText("");
     setDayStr("");
-    inputRef.current?.focus();
+    textRef.current?.focus();
   };
 
   const onKeyDown = (event: ReactKeyboardEvent) => {
     if (event.key === "Enter") {
-      // preventDefault stops the form's implicit submission firing capture twice.
+      // In the textarea Enter sends only under a fine pointer and without Shift; otherwise
+      // the browser inserts the break. From the day field Enter still sends, as before.
+      if (event.target === textRef.current && (event.shiftKey || !fine)) return;
       event.preventDefault();
       capture();
       return;
@@ -111,10 +98,30 @@ export function CaptureBar({ wide, onCapture }: Props) {
     if (event.altKey && digit !== -1) selectKind(KINDS[digit]);
   };
 
-  // The three capture fields, reused as-is on the flat desktop strip and, on the
-  // phone, wrapped in the rounded composer.
-  const fields = (
-    <>
+  return (
+    <form
+      onKeyDown={onKeyDown}
+      onSubmit={(event) => {
+        event.preventDefault();
+        capture();
+      }}
+      style={{
+        flex: "none",
+        display: "flex",
+        alignItems: "flex-end",
+        gap: 6,
+        width: "calc(100% - 32px)",
+        maxWidth: 720,
+        boxSizing: "border-box",
+        marginTop: 0,
+        marginLeft: "auto",
+        marginRight: "auto",
+        marginBottom: "calc(12px + env(safe-area-inset-bottom))",
+        padding: "6px 6px 6px 14px",
+        background: "var(--capture-bg)",
+        borderRadius: lines <= 1 ? 999 : 26,
+      }}
+    >
       {KINDS.map((k) => {
         const selected = k === kind;
         return (
@@ -139,22 +146,17 @@ export function CaptureBar({ wide, onCapture }: Props) {
         );
       })}
 
-      <input
-        ref={inputRef}
+      <textarea
+        ref={textRef}
         value={text}
         onChange={(event) => setText(event.target.value)}
+        rows={Math.min(5, Math.max(1, lines))}
         placeholder="uma tarefa..."
         aria-label="nova tarefa"
-        enterKeyHint="send"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          fontSize: 18,
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          padding: "10px 0",
-        }}
+        enterKeyHint={fine ? "send" : "enter"}
+        style={{ flex: 1, minWidth: 0, fontFamily: "inherit", fontSize: 18, lineHeight: 1.3,
+                 color: "inherit", border: "none", outline: "none", background: "transparent",
+                 padding: "10px 0", margin: 0, resize: "none", overflowY: "auto" }}
       />
 
       <input
@@ -167,6 +169,7 @@ export function CaptureBar({ wide, onCapture }: Props) {
           if (/^\d{0,2}$/.test(raw)) setDayStr(raw);
         }}
         aria-label="prazo"
+        placeholder="dd"
         style={{
           flex: "none",
           width: 40,
@@ -175,32 +178,31 @@ export function CaptureBar({ wide, onCapture }: Props) {
           outline: "none",
           background: "transparent",
           color: dayStr === "" ? "var(--text-quiet)" : "var(--text-primary)",
-          padding: "4px 0",
+          padding: "12px 0",
           textAlign: "center",
         }}
       />
-    </>
-  );
 
-  return (
-    <form
-      onKeyDown={onKeyDown}
-      onSubmit={(event) => {
-        event.preventDefault();
-        capture();
-      }}
-      style={{
-        flex: "none",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "14px 16px",
-        paddingBottom: "max(14px, env(safe-area-inset-bottom))",
-        background: "var(--capture-bg)",
-        borderTop: "1px solid var(--hairline)",
-      }}
-    >
-      {wide ? fields : <div style={COMPOSER}>{fields}</div>}
+      <button
+        type="submit"
+        aria-label="enviar"
+        disabled={blank}
+        style={{ flex: "none", minWidth: 44, minHeight: 44, padding: 0, border: "none",
+                 background: "transparent", display: "inline-flex", alignItems: "center",
+                 justifyContent: "center", cursor: blank ? "default" : "pointer" }}
+      >
+        <span
+          aria-hidden="true"
+          style={{ width: 36, height: 36, borderRadius: 999, display: "inline-flex",
+                   alignItems: "center", justifyContent: "center",
+                   background: blank ? "var(--text-quiet)" : "var(--text-primary)",
+                   color: "var(--surface)", opacity: blank ? 0.45 : 1 }}
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M2.5 21 23 12 2.5 3v7l14 2-14 2z" />
+          </svg>
+        </span>
+      </button>
     </form>
   );
 }

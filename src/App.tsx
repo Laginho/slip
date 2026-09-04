@@ -9,7 +9,7 @@ import { TaskList } from "./components/TaskList";
 import { UndoToast } from "./components/UndoToast";
 
 /**
- * The single screen. One scrolling list, one input pinned to the bottom.
+ * The single screen. One scrolling list, one pill floating at the bottom.
  * No router, no tabs, no nav bar: the Archive (issue 08) is a section, not a route.
  * The scrolling region and the content are two elements: the region scrolls while
  * the content declares the extra height that keeps the list pullable.
@@ -157,7 +157,7 @@ export function App() {
         </main>
       </div>
 
-      <CaptureBar wide={wide} onCapture={capture} />
+      <CaptureBar onCapture={capture} />
 
       {/*
         One fixed layer for every notification -- undo toast and save-error banner.
