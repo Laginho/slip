@@ -108,8 +108,8 @@ sans-serif`) — native feel, zero webfont cost.
 ### Hierarchy
 - **Task text** (400, 16px, 1.3): the Card's content; also the minimum size that
   stops iOS zooming a focused input.
-- **Meta/label** (700 bold for "desfazer" and overdue labels; 13–14px for chips,
-  toasts, archive rows): quiet support, underlined when tappable.
+- **Meta/label** (700 bold for "desfazer" and overdue labels; 13–14px for the Kind
+  pop-up, toasts, archive rows): quiet support, underlined when tappable.
 
 ## Layout
 
