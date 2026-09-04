@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { TransitionEvent as ReactTransitionEvent } from "react";
 import type { Task } from "../store";
+import { useMediaQuery } from "../useMediaQuery";
 import { CARD, INK_ON_DARK, INK_ON_LIGHT, OVERDUE_RED } from "../palette";
 import { daysOverdue, formatDeadline, urgencyOf } from "../urgency";
 
@@ -101,7 +102,16 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
   // half of a double-tap land on Apagar. This gates ONLY the hover half of the reveal:
   // rendering, Tab focusability and focus-driven reveal stay unconditional, so a
   // keyboard attached to a tablet still reaches every action.
-  const canHover = window.matchMedia("(hover: hover)").matches;
+  // Absent matchMedia (unstubbed jsdom) there is no hover capability to read:
+  // treat it as no-hover rather than throwing, the touch-device profile.
+  const canHover =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(hover: hover)").matches;
+
+  // Enter commits only where a fine pointer makes a single-line commit gesture
+  // unambiguous; under a coarse pointer Enter always inserts a break. Live, so
+  // a pointer flip mid-edit takes effect on the next keypress.
+  const fine = useMediaQuery("(pointer: fine)");
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.text);
@@ -114,8 +124,8 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
   const pendingTap = useRef<number | undefined>(undefined);
   const suppressClick = useRef(false);
 
-  /** The in-place edit input, and the control keyboard commits hand focus back to. */
-  const editInput = useRef<HTMLInputElement>(null);
+  /** The in-place edit textarea, and the control keyboard commits hand focus back to. */
+  const editInput = useRef<HTMLTextAreaElement>(null);
   const editarButton = useRef<HTMLButtonElement>(null);
   /** Set when a commit leaves the input holding focus; consumed by the effect below. */
   const wantsFocusBack = useRef(false);
@@ -135,10 +145,10 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
     [],
   );
 
-  // Leaving edit mode unmounts the focused input, and browsers do not reliably deliver
+  // Leaving edit mode unmounts the focused textarea, and browsers do not reliably deliver
   // focusout for a removed node -- without this reset the three controls can stick
   // revealed on that one Card with nothing actually focused inside it. When a commit
-  // came from the keyboard (input still focused), hand focus to the Card's own controls
+  // came from the keyboard (textarea still focused), hand focus to the Card's own controls
   // instead of dropping it on <body>; run after render so the button exists to focus.
   useEffect(() => {
     if (!editing && wantsFocusBack.current) {
@@ -152,9 +162,9 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
     setEditing(true);
   };
 
-  /** Leave edit mode, clearing any focus-within the unmounting input leaves behind. */
+  /** Leave edit mode, clearing any focus-within the unmounting textarea leaves behind. */
   const finishEditing = () => {
-    // A keyboard commit still holds focus in the input; remember that so the effect
+    // A keyboard commit still holds focus in the textarea; remember that so the effect
     // above can return it. A blur commit must not steal focus back -- focus already
     // moved where the user sent it.
     wantsFocusBack.current = document.activeElement === editInput.current;
@@ -397,16 +407,18 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
         userSelect: editing ? "auto" : "none",
       }}
     >
-      <span style={{ flex: 1, minWidth: 0, fontSize: 18, lineHeight: 1.5 }}>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 18, lineHeight: 1.5, whiteSpace: "pre-line" }}>
         {editing ? (
-          <input
+          <textarea
             ref={editInput}
             autoFocus
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitEdit}
             onKeyDown={(event) => {
-              if (event.key === "Enter") {
+              if (event.key === "Enter" && !event.shiftKey && fine) {
+                // Fine pointer: Enter commits. Everywhere else the browser
+                // inserts the break -- Shift+Enter, or any Enter under coarse.
                 event.preventDefault();
                 commitEdit();
               }
@@ -417,6 +429,7 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
               }
             }}
             aria-label="Task"
+            rows={Math.max(1, draft.split("\n").length)}
             style={{
               width: "100%",
               font: "inherit",
@@ -425,6 +438,7 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
               border: "none",
               outline: "none",
               padding: 0,
+              resize: "none",
             }}
           />
         ) : (
