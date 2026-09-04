@@ -135,8 +135,9 @@ via fixed positioning alone, not elevation effects.
 ## Shapes
 
 Rounded rectangles everywhere, one radius family: 10px on Cards and notifications;
-the fully-round 999px pill is the composer while it holds one line (26px once it grows) and the Kind chips. Inputs are bare (no visible
-field box) — focus lives in the composition, not a border.
+the fully-round 999px pill is the composer while it holds one line (26px once it
+grows) and the Kind chips. Inputs are bare (no visible field box) — focus lives in the
+composition, not a border.
 
 ## Components
 
@@ -170,7 +171,8 @@ field box) — focus lives in the composition, not a border.
 ### Do:
 - **Do** keep every colour exactly as listed above; steer typography, spacing, and
   layout instead.
-- **Do** keep the capture bar pinned, floating on the capture ground, and reachable at all times.
+- **Do** keep the capture bar pinned, floating on the capture ground, and reachable at
+  all times.
 - **Do** preserve bottom-anchoring of the phone list and the wall's uneven bottoms.
 - **Do** keep gestures and their keyboard equivalents working on any new layout.
 
