@@ -17,14 +17,14 @@ pop-up; Docs).
 
 **Blocked by:** 02 (the pill; same component, sequenced to avoid conflicting edits).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Chips removed; one dot button with letter, colour, `title`, `aria-haspopup`, `aria-expanded`, declared 44×44 minimum and 28px circle
-- [ ] Pop-up opens on click/tap only, above the dot, with three lettered options and words; selected option `aria-pressed`
-- [ ] Choose → select + persist + close + refocus; Escape or outside pointerdown → close without change
-- [ ] Alt+1/2/3 select without opening; the dot reflects the new Kind
-- [ ] Keyboard path end to end through the pill
-- [ ] DESIGN.md amended; no hex literal outside the palette module; whole suite green; `tsc -b` clean
+- [x] Chips removed; one dot button with letter, colour, `title`, `aria-haspopup`, `aria-expanded`, declared 44×44 minimum and 28px circle
+- [x] Pop-up opens on click/tap only, above the dot, with three lettered options and words; selected option `aria-pressed`
+- [x] Choose → select + persist + close + refocus; Escape or outside pointerdown → close without change
+- [x] Alt+1/2/3 select without opening; the dot reflects the new Kind
+- [x] Keyboard path end to end through the pill
+- [x] DESIGN.md amended; no hex literal outside the palette module; whole suite green; `tsc -b` clean
 
 ## Test Case Matrix
 
