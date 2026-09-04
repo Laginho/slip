@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CHROME } from "./palette";
+import { useMediaQuery } from "./useMediaQuery";
 import { useSession } from "./useSession";
 import { archive } from "./store";
 import { ARCHIVE_ROW_HEIGHT, Archive } from "./components/Archive";
@@ -45,8 +46,8 @@ export function App() {
       if (!event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
       if (event.key.toLowerCase() !== "h") return;
       const target = event.target;
-      // A Card's in-place editor: the only <input> that lives inside an <li>.
-      if (target instanceof HTMLInputElement && target.closest("li") !== null) return;
+      // A Card's in-place editor: the only <textarea> that lives inside an <li>.
+      if (target instanceof HTMLTextAreaElement && target.closest("li") !== null) return;
       if (!hasArchive) return; // nothing to show: leave the browser's Ctrl+H alone
       event.preventDefault();
       setArchiveOpen((o) => !o);
@@ -61,23 +62,9 @@ export function App() {
    * a phone rotated. Like `now` below, it is owned here and handed down: TaskList
    * stays presentational, choosing between the phone column and the post-it wall.
    */
-  const [wide, setWide] = useState(() => window.matchMedia("(min-width: 900px)").matches);
+  const wide = useMediaQuery("(min-width: 900px)");
 
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 900px)");
-    const onChange = (event: MediaQueryListEvent) => setWide(event.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  const [dark, setDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (event: MediaQueryListEvent) => setDark(event.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const dark = useMediaQuery("(prefers-color-scheme: dark)");
 
   /**
    * One clock for the whole screen, refreshed on focus, on visibilitychange, and at each

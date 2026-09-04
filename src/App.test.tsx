@@ -147,18 +147,20 @@ describe("Card actions under a failing write", () => {
   });
 
   it("edit keeps the editor open with the draft, and commits once storage recovers", async () => {
+    // Enter only commits under a fine primary pointer; under coarse it inserts a break.
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
     const seeded = seedStorage([task({ id: "a", text: "texto original" })]);
     throwOnSetItem();
     const container = await render(<App />);
 
     await activate(queryLabel(container, "Editar")!);
-    const input = container.querySelector<HTMLInputElement>('input[aria-label="Task"]')!;
+    const input = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
     typeInto(input, "texto editado");
     await dispatch(keyEvent("Enter"), input);
 
     // The editor stayed open and every keystroke survived -- nothing was discarded
     // behind the generic banner.
-    const stillOpen = container.querySelector<HTMLInputElement>('input[aria-label="Task"]')!;
+    const stillOpen = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
     expect(stillOpen.value).toBe("texto editado");
     expect(container.textContent).toContain(SAVE_ERROR);
     expect(localStorage.getItem(STORAGE_KEY)).toBe(seeded);
@@ -166,7 +168,7 @@ describe("Card actions under a failing write", () => {
     // Storage recovers; the same Enter path now commits and closes.
     vi.mocked(Storage.prototype.setItem).mockRestore();
     await dispatch(keyEvent("Enter"), input);
-    expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
     expect(container.textContent).toContain("texto editado");
     const [stored] = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(stored.text).toBe("texto editado");
@@ -174,6 +176,8 @@ describe("Card actions under a failing write", () => {
   });
 
   it("a no-op edit closes the editor but must not clear the save error", async () => {
+    // Enter only commits under a fine primary pointer; under coarse it inserts a break.
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
     const seeded = seedStorage([task({ id: "a", text: "texto original" })]);
     throwOnSetItem();
     const container = await render(<App />);
@@ -182,12 +186,12 @@ describe("Card actions under a failing write", () => {
 
     // Clearing an editor's text is a store no-op: nothing is written anywhere.
     await activate(queryLabel(container, "Editar")!);
-    const input = container.querySelector<HTMLInputElement>('input[aria-label="Task"]')!;
+    const input = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
     typeInto(input, "");
     await dispatch(keyEvent("Enter"), input);
 
     // The harmless no-op still reports success, so the editor closes...
-    expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
     // ...but storage has not recovered, so the banner must NOT claim it did.
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBe(seeded);
@@ -1348,20 +1352,23 @@ describe("Ctrl+H toggles the Archive", () => {
     expect(input.value).toBe("abc");
   });
 
-  it("row 7 — Ctrl+H on Card editor: still closed; editor stays; defaultPrevented false", async () => {
+  it("row 7 — Ctrl+H on Card editor: still closed; editor stays, draft intact; defaultPrevented false", async () => {
     seedTwoOpenOneDone();
     const container = await render(<App />);
     const main = container.querySelector("main")!;
 
     await activate(queryLabel(container, "Editar")!);
-    const editor = container.querySelector<HTMLInputElement>("input")!;
+    const editor = container.querySelector<HTMLTextAreaElement>("textarea[aria-label='Task']")!;
+    typeInto(editor, "rascunho");
 
     const event = keyEvent("H", { ctrlKey: true });
     await dispatch(event, editor);
 
     expect(main.textContent).toContain("ver concluídas");
     expect(main.textContent).not.toContain("entregar relatório");
-    expect(container.querySelector("input")).not.toBeNull();
+    const after = container.querySelector<HTMLTextAreaElement>("textarea[aria-label='Task']");
+    expect(after).not.toBeNull();
+    expect(after!.value).toBe("rascunho");
     expect(event.defaultPrevented).toBe(false);
   });
 

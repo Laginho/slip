@@ -182,13 +182,29 @@ function apply(tasks: Task[], id: string, change: (task: Task) => Task): Task[] 
   );
 }
 
+/**
+ * The one text normalisation. Line breaks survive -- a Task may span lines --
+ * but the shape stays canonical: CRLF and lone CR become LF, whitespace-only
+ * lines lose their content so they still count as blank, both ends are trimmed,
+ * and runs of three or more breaks collapse to exactly two (one blank line).
+ */
+function normaliseText(text: string): string {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => (line.trim() === "" ? "" : line))
+    .join("\n")
+    .trim()
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 export function create(
   tasks: Task[],
   text: string,
   kind: Kind,
   deadline: string | null = null,
 ): Task[] {
-  const trimmed = text.trim();
+  const trimmed = normaliseText(text);
   // Task text is required, so a blank one is not a Task. Capture guards this too, but
   // the invariant belongs to the authoritative write path, not to one caller.
   if (trimmed === "") return tasks;
@@ -211,7 +227,7 @@ export function create(
 }
 
 export function editText(tasks: Task[], id: string, text: string): Task[] {
-  const trimmed = text.trim();
+  const trimmed = normaliseText(text);
   // Clearing the text during an in-place edit is not a delete. Keep what was there.
   if (trimmed === "") return tasks;
   return apply(tasks, id, (task) => ({ ...task, text: trimmed }));
