@@ -17,14 +17,14 @@ and the editor).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] `create` and `editText` normalise identically; the Task model, ingress validation and sync are untouched
-- [ ] Card text renders with `white-space: pre-line` on both profiles
-- [ ] The editor is a textarea holding the full text; Enter rules follow `(pointer: fine)` live; blur commits; Escape cancels and restores
-- [ ] Ctrl+H is ignored when the event target is the editor textarea inside an `li`, still honoured from the capture bar
-- [ ] The media-query hook replaces the two hand-written subscriptions in the screen root with no behaviour change (existing dark-chrome and breakpoint suites stay green)
-- [ ] Both pointer profiles, both colour schemes; whole suite green; `tsc -b` clean
+- [x] `create` and `editText` normalise identically; the Task model, ingress validation and sync are untouched
+- [x] Card text renders with `white-space: pre-line` on both profiles
+- [x] The editor is a textarea holding the full text; Enter rules follow `(pointer: fine)` live; blur commits; Escape cancels and restores
+- [x] Ctrl+H is ignored when the event target is the editor textarea inside an `li`, still honoured from the capture bar
+- [x] The media-query hook replaces the two hand-written subscriptions in the screen root with no behaviour change (existing dark-chrome and breakpoint suites stay green)
+- [x] Both pointer profiles, both colour schemes; whole suite green; `tsc -b` clean
 
 ## Test Case Matrix
 
@@ -78,3 +78,11 @@ and declared styles.
 
 Error cases: `matchMedia` absent (`stubNoMatchMedia`) must not throw; the hook returns
 `false` and the editor behaves as coarse.
+
+## Comments
+
+- 2026-09-04 (master): cycle 01 — clean. TEST `fe82c13` (big pickle), MAKE `bf39a00` (muse
+  spark 1.3 free), READ `e48e04d` (mimo v2.5 free), master nit `16d8046` (`Role: MASTER`:
+  the hook's stub-shaped `addEventListener` guard dropped, two Card stubs moved to
+  `stubMediaWithChangeListener`). Suite 245/245, `tsc -b` clean. Browser validation recorded
+  in PR #20's description. Merged as PR #20 (`824743a`). Ledger: `../ledger.md`, cycle 01.
