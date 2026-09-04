@@ -9,6 +9,7 @@ import {
   queryLabel,
   render,
   stubDesktopMedia,
+  stubMediaWithChangeListener,
   stubNoMatchMedia,
   task,
   typeInto,
@@ -49,9 +50,9 @@ async function renderCard(
   return { card, container };
 }
 
-async function openEditor(container: HTMLElement): Promise<HTMLInputElement> {
+async function openEditor(container: HTMLElement): Promise<HTMLTextAreaElement> {
   await activate(queryLabel(container, "Editar")!);
-  return container.querySelector<HTMLInputElement>('input[aria-label="Task"]')!;
+  return container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
 }
 
 beforeEach(() => {
@@ -181,6 +182,8 @@ describe("keyboard-accessible actions", () => {
 
 describe("the edit lifecycle", () => {
   it("commits on Enter, closes the editor, and hands focus back to the Card", async () => {
+    // Enter only commits under a fine primary pointer; under coarse it inserts a break.
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
     const onEdit = vi.fn(() => true);
     const { card, container } = await renderCard({ onEdit });
     const input = await openEditor(container);
@@ -191,7 +194,7 @@ describe("the edit lifecycle", () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledWith(card, "entregar relatório revisado");
-    expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
     // A standalone Card renders its props; the committed text landing in storage is
     // asserted against the real App in App.test.tsx. Here we pin the editor closing
     // and keyboard focus returning to the Card instead of dropping to <body>.
@@ -199,6 +202,8 @@ describe("the edit lifecycle", () => {
   });
 
   it("keeps the editor open with the draft when the write fails", async () => {
+    // Enter only commits under a fine primary pointer; under coarse it inserts a break.
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
     const onEdit = vi.fn(() => false);
     const { card, container } = await renderCard({ onEdit });
     const input = await openEditor(container);
@@ -209,7 +214,7 @@ describe("the edit lifecycle", () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledWith(card, "texto que não salvou");
     // The editor never closed and every keystroke survives for a retry.
-    const stillOpen = container.querySelector<HTMLInputElement>('input[aria-label="Task"]')!;
+    const stillOpen = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
     expect(stillOpen.value).toBe("texto que não salvou");
   });
 
@@ -222,7 +227,7 @@ describe("the edit lifecycle", () => {
     await act(async () => input.blur()); // focus falls to <body>, as the user moved it
 
     expect(onEdit).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
     expect(document.activeElement).toBe(document.body); // nothing yanked back
   });
 
@@ -235,9 +240,191 @@ describe("the edit lifecycle", () => {
     await dispatch(keyEvent("Escape"), input);
 
     expect(onEdit).not.toHaveBeenCalled();
-    expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
     expect(container.textContent).toContain(card.text);
     expect(document.activeElement).toBe(queryLabel(container, "Editar"));
+  });
+});
+
+describe("the textarea editor (issue 01)", () => {
+  const NOW = new Date(2026, 7, 22);
+
+  async function renderEditorCard(
+    text: string,
+    wide: boolean,
+    onEdit?: (task: Task, next: string) => boolean,
+  ): Promise<{ container: HTMLElement; card: Task }> {
+    const card = task({ id: "a", text });
+    const container = await render(
+      <ul>
+        <Card
+          task={card}
+          now={NOW}
+          wide={wide}
+          onComplete={() => true}
+          onDelete={() => true}
+          onEdit={onEdit ?? (() => true)}
+        />
+      </ul>,
+    );
+    return { card, container };
+  }
+
+  it("9 — resting Card renders line breaks with pre-line on both profiles", async () => {
+    for (const wide of [false, true]) {
+      const { container } = await renderEditorCard("a\nb", wide);
+      const span = container.querySelector("li > span") as HTMLElement;
+      expect(span).not.toBeNull();
+      expect(span.style.whiteSpace, `wide=${wide}`).toBe("pre-line");
+      expect(span.textContent).toContain("a\nb");
+      await unmount();
+    }
+  });
+
+  it("10 — the editor is a textarea holding the full text, focused", async () => {
+    const { container } = await renderEditorCard("a\nb", false);
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]');
+    expect(editor).not.toBeNull();
+    expect(editor!.value).toBe("a\nb");
+    expect(document.activeElement).toBe(editor);
+  });
+
+  it("11 — fine pointer: Enter commits a changed multiline draft once, closes the editor, defaultPrevented", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const onEdit = vi.fn(() => true);
+    const { card, container } = await renderEditorCard("a\nb\nc", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    // commitEdit short-circuits when the draft is unchanged, so type a real change.
+    typeInto(editor, "a\nb\nc\nd");
+    const event = keyEvent("Enter");
+    await dispatch(event, editor);
+    await act(async () => {}); // let the focus-restoring effect run
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledWith(card, "a\nb\nc\nd");
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("12 — fine pointer: Shift+Enter inserts a break, does not commit", async () => {
+    stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const onEdit = vi.fn(() => true);
+    const { container } = await renderEditorCard("a\nb\nc", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    const event = keyEvent("Enter", { shiftKey: true });
+    await dispatch(event, editor);
+
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(container.querySelector('textarea[aria-label="Task"]')).not.toBeNull();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("13 — coarse pointer: Enter inserts a break, does not commit", async () => {
+    stubNoMatchMedia();
+    const onEdit = vi.fn(() => true);
+    const { container } = await renderEditorCard("a\nb\nc", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    const event = keyEvent("Enter");
+    await dispatch(event, editor);
+
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(container.querySelector('textarea[aria-label="Task"]')).not.toBeNull();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("14 — coarse pointer: blur commits once with the draft and closes", async () => {
+    stubNoMatchMedia();
+    const onEdit = vi.fn(() => true);
+    const { card, container } = await renderEditorCard("a\nb", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    typeInto(editor, "a\nb\nc");
+    await act(async () => editor.blur());
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledWith(card, "a\nb\nc");
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
+  });
+
+  it("15 — Escape cancels without writing, restores the original text, closes", async () => {
+    const onEdit = vi.fn(() => true);
+    const { card, container } = await renderEditorCard("a\nb", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    typeInto(editor, "other");
+    await dispatch(keyEvent("Escape"), editor);
+
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
+    expect(container.textContent).toContain(card.text);
+  });
+
+  it("16 — onEdit returns false: the editor stays open with the draft intact", async () => {
+    stubNoMatchMedia();
+    const onEdit = vi.fn(() => false);
+    const { container } = await renderEditorCard("a\nb", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    typeInto(editor, "a\nb\nc");
+    await act(async () => editor.blur());
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    const stillOpen = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    expect(stillOpen.value).toBe("a\nb\nc");
+  });
+
+  it("17 — pointer flips fine→coarse while editing: Enter no longer commits", async () => {
+    const rec = stubMediaWithChangeListener((q) => q === "(pointer: fine)");
+    const onEdit = vi.fn(() => true);
+    const { container } = await renderEditorCard("a\nb\nc", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+
+    for (const handler of rec.listeners.get("(pointer: fine)") ?? []) {
+      await act(async () => {
+        handler({ matches: false } as MediaQueryListEvent);
+      });
+    }
+
+    const event = keyEvent("Enter");
+    await dispatch(event, editor);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("18 — wall profile with an 8-line Task: the textarea holds the full text", async () => {
+    const eightLines = Array.from({ length: 8 }, (_, i) => `linha ${i + 1}`).join("\n");
+    const { container } = await renderEditorCard(eightLines, true);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]');
+    expect(editor).not.toBeNull();
+    expect(editor!.value).toBe(eightLines);
+  });
+
+  it("error case — absent matchMedia: rendering and Enter do not throw and act coarse", async () => {
+    vi.unstubAllGlobals();
+    const onEdit = vi.fn(() => true);
+    const { container } = await renderEditorCard("a\nb", false, onEdit);
+
+    await activate(queryLabel(container, "Editar")!);
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
+    const event = keyEvent("Enter");
+    await dispatch(event, editor);
+
+    expect(event.defaultPrevented).toBe(false);
   });
 });
 
@@ -310,7 +497,7 @@ describe("gestures starting on a revealed action button", () => {
       await act(async () => { vi.advanceTimersByTime(300); });
 
       expect(onComplete).toHaveBeenCalledTimes(1);
-      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+      expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -325,7 +512,7 @@ describe("gestures starting on a revealed action button", () => {
 
       await dispatch(fire("pointerdown", 0), button);
       await act(async () => { vi.advanceTimersByTime(600); });
-      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+      expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
 
       await dispatch(fire("pointerup", 0), button);
       await dispatch(new MouseEvent("click", { bubbles: true }), button);
@@ -392,7 +579,7 @@ describe("gestures starting on a revealed action button", () => {
       await act(async () => { vi.advanceTimersByTime(300); });
 
       expect(onDelete).toHaveBeenCalledTimes(1);
-      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+      expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
       expect(li.style.transform).toBe("");
     } finally {
       vi.useRealTimers();
@@ -432,7 +619,7 @@ describe("gestures starting on a revealed action button", () => {
       await dispatch(fire("pointerdown", 0), li);
       await act(async () => { vi.advanceTimersByTime(500); });
 
-      expect(container.querySelector('input[aria-label="Task"]')).not.toBeNull();
+      expect(container.querySelector('textarea[aria-label="Task"]')).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -475,13 +662,13 @@ describe("gestures starting on a revealed action button", () => {
       await dispatch(fire("pointerup", 0), button);
       await dispatch(new MouseEvent("click", { bubbles: true }), button);
       expect(onComplete).toHaveBeenCalledTimes(1);
-      expect(container.querySelector('input[aria-label="Task"]')).toBeNull();
+      expect(container.querySelector('textarea[aria-label="Task"]')).toBeNull();
 
       // Body path — fine-pointer tap-edit
       await dispatch(fire("pointerdown", 0), li);
       await dispatch(fire("pointerup", 0), li);
       await act(async () => { vi.advanceTimersByTime(250); });
-      expect(container.querySelector('input[aria-label="Task"]')).not.toBeNull();
+      expect(container.querySelector('textarea[aria-label="Task"]')).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }

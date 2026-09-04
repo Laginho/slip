@@ -166,9 +166,9 @@ export async function dispatch(event: Event, target: EventTarget): Promise<void>
 }
 
 /** Set an input's value the way a real keystroke would, so React onChange fires. */
-export function typeInto(input: HTMLInputElement, value: string): void {
+export function typeInto(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
+    Object.getPrototypeOf(input),
     "value",
   )!.set!;
   setter.call(input, value);

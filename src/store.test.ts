@@ -263,6 +263,50 @@ describe("mutations", () => {
   });
 });
 
+describe("text normalisation (issue 01)", () => {
+  it("row 1 — create keeps a single line break untouched", () => {
+    expect(create([], "a\nb", "work")[0].text).toBe("a\nb");
+  });
+
+  it("row 2 — create keeps a double line break untouched", () => {
+    expect(create([], "a\n\nb", "work")[0].text).toBe("a\n\nb");
+  });
+
+  it("row 3 — create caps runs of blank lines at two", () => {
+    expect(create([], "a\n\n\n\nb", "work")[0].text).toBe("a\n\nb");
+  });
+
+  it("row 4 — create trims both ends", () => {
+    expect(create([], "\n\n a \n\n", "work")[0].text).toBe("a");
+  });
+
+  it("row 5 — create collapses CRLF and lone CR to a single LF", () => {
+    expect(create([], "a\r\nb\r\n\r\n\r\nc", "work")[0].text).toBe("a\nb\n\nc");
+  });
+
+  it("row 6 — create treats a whitespace-only result as no Task", () => {
+    expect(create([], "\n \n", "work")).toEqual([]);
+  });
+
+  it("row 7 — editText caps blank-line runs and re-stamps updatedAt", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    const start = [task({ id: "a", text: "original", updatedAt: 1 })];
+    const edited = editText(start, "a", "x\n\n\n\ny");
+    expect(edited[0].text).toBe("x\n\ny");
+    expect(edited[0].updatedAt).toBeGreaterThan(1);
+  });
+
+  it("row 8 — editText keeps what was there when the result is whitespace-only", () => {
+    const start = [task({ id: "a", text: "original" })];
+    expect(editText(start, "a", "  \n ")).toEqual(start);
+  });
+
+  it("row 8b — create drops whitespace-only lines so they still count as blank", () => {
+    expect(create([], "a\n \n \nb", "work")[0].text).toBe("a\n\nb");
+  });
+});
+
 describe("restore (the undo primitive)", () => {
   it("puts every user-visible field back", () => {
     const before = task({ id: "a", text: "original", deadline: "2026-08-25", updatedAt: 5 });
