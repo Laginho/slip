@@ -87,6 +87,32 @@ Run from the repo root of the checkout under test:
 - `src/testing.tsx` already has `activate` (models the click a real Enter/Space produces on a
   button, which jsdom never synthesises), `click`, `dispatch`, `keyEvent`, `typeInto`,
   `queryLabel`, `seedStorage`, `throwOnSetItem`. Look there before writing a helper.
+- `repeat(auto-fill, minmax(a, b))` counts its tracks by the definite maximum `b`: four
+  300px tracks need 1248px, so the formula gave three columns at 1200px (ticket 04). When a
+  ticket pins a CSS literal next to an outcome, prototype the literal in the browser before
+  pinning it; what shipped is explicit `repeat(3|4, …)` from a 1168px media query in App.
+- jsdom cannot verify a line clamp, a column count or a margin: PR #23's three defects all
+  passed the suite. Layout tickets are gated by browser **measurements** against the
+  ticket's outcome sentences (visible lines, columns, gaps in px), by implementer and
+  reviewer alike, not by declaration tests and not by eyeballing.
+- `index.html`'s reset does not touch `ul` margins, and React inline styles must not switch
+  between a `margin` shorthand and `marginLeft`-style longhands across renders (React warns,
+  the transition conflicts). `LIST`/`WALL` in `TaskList.tsx` use longhands on both branches.
+
+## Solo TDD with cross-model review (from ticket 04 on)
+
+The Leva 1b tickets after 03 do not run PTMR. One implementing session (Sonnet for the
+trial, Opus if a red fails the reviewer) does red and green as separate commits with the
+`Role:` trailers, validates in the browser and opens the PR; a reviewer of another vendor
+reads the red commit against the matrix, every later test edit, the green against the spec,
+and runs the app for layout tickets. Rules learnt on PR #23:
+
+- The reviewer **reports, never commits**. Findings go back to the implementing session;
+  the reviewer's corrections got no independent review before merge.
+- A known spec violation blocks the PR. Disclosing it in the description is not stopping.
+- Ticket and spec edits are tracker commits on `main` by the user or the spec author,
+  before the correction, never inside the PR by the implementer.
+- The master closes the ticket afterwards exactly as in step 6 of the PTMR cycle.
 
 ## Parallel cycles on one feature
 

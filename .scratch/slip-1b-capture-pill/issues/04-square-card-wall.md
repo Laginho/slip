@@ -22,16 +22,16 @@ square wall; Docs). The decision was made on the V3 comparison page (Further Not
 
 **Blocked by:** nothing — 01 (`pre-line` and the textarea editor) merged in PR #20. Independent of 02 and 03, both since merged.
 
-**Status:** ready-for-agent
+**Status:** complete
 
-- [ ] Wall grid has three/four explicit `minmax(260px, 300px)` columns, `justifyContent: center`; list `maxWidth` 1248, centred; sections and their 24px margin unchanged
-- [ ] Wall Card declares `containerType: inline-size`, `aspectRatio: "1 / 1"` (or `"1"`), `overflow: hidden`, radius 10, column layout with text region then footer
-- [ ] Text `fontSize: 6.67cqw`, `lineHeight: 1.3`, `whiteSpace: pre-line`, `-webkit-line-clamp: 8` with `display: -webkit-box` and `WebkitBoxOrient: vertical`
-- [ ] Footer Deadline `dd/mm` at `5.8cqw`, `tabular-nums`, opacity 0.75; absent when no Deadline; Overdue label inline with the text as today
-- [ ] Controls top-right, `7.5cqw` glyphs, 44×44 minimum, reveal and pointer-events rules byte-identical to Leva 1a's tests
-- [ ] Bubble Card: `-webkit-line-clamp: 6`, everything else unchanged (its Leva 1a rows stay green)
-- [ ] Editor textarea fills the text region on the wall
-- [ ] DESIGN.md and PRODUCT.md amended; no hex literal outside the palette module; whole suite green; `tsc -b` clean
+- [x] Wall grid has three/four explicit `minmax(260px, 300px)` columns, `justifyContent: center`; list `maxWidth` 1248, centred; sections and their 24px margin unchanged
+- [x] Wall Card declares `containerType: inline-size`, `aspectRatio: "1 / 1"` (or `"1"`), `overflow: hidden`, radius 10, column layout with text region then footer
+- [x] Text `fontSize: 6.67cqw`, `lineHeight: 1.3`, `whiteSpace: pre-line`, `-webkit-line-clamp: 8` with `display: -webkit-box` and `WebkitBoxOrient: vertical`
+- [x] Footer Deadline `dd/mm` at `5.8cqw`, `tabular-nums`, opacity 0.75; absent when no Deadline; Overdue label inline with the text as today
+- [x] Controls top-right, `7.5cqw` glyphs, 44×44 minimum, reveal and pointer-events rules byte-identical to Leva 1a's tests
+- [x] Bubble Card: `-webkit-line-clamp: 6`, everything else unchanged (its Leva 1a rows stay green)
+- [x] Editor textarea fills the text region on the wall
+- [x] DESIGN.md and PRODUCT.md amended; no hex literal outside the palette module; whole suite green; `tsc -b` clean
 
 ## Test Case Matrix
 
