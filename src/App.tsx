@@ -57,12 +57,14 @@ export function App() {
   }, [hasArchive]);
 
   /**
-   * The one layout breakpoint. Inline styles cannot express a media query, so the
-   * screen asks once and reacts to changes live -- a desktop window being resized,
+   * Layout breakpoints. Inline styles cannot express a media query, so the
+   * screen reacts to changes live -- a desktop window being resized,
    * a phone rotated. Like `now` below, it is owned here and handed down: TaskList
    * stays presentational, choosing between the phone column and the post-it wall.
    */
   const wide = useMediaQuery("(min-width: 900px)");
+  // Four columns from 1136px of available width plus the main's two 16px gutters.
+  const fourColumns = useMediaQuery("(min-width: 1168px)");
 
   const dark = useMediaQuery("(prefers-color-scheme: dark)");
 
@@ -150,6 +152,7 @@ export function App() {
             tasks={tasks}
             now={now}
             wide={wide}
+            wallColumns={fourColumns ? 4 : 3}
             onComplete={complete}
             onDelete={discard}
             onEdit={edit}

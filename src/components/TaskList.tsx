@@ -27,6 +27,8 @@ type Props = {
    * top-to-bottom, and the dateless section still follows the dated one.
    */
   wide: boolean;
+  /** App owns the live desktop density breakpoint as well as the phone breakpoint. */
+  wallColumns: 3 | 4;
   /** All three report whether the change persisted; false means storage refused it. */
   onComplete: (task: Task) => boolean;
   onDelete: (task: Task) => boolean;
@@ -34,7 +36,10 @@ type Props = {
 };
 
 const LIST: CSSProperties = {
-  margin: 0,
+  marginTop: 0,
+  marginBottom: 0,
+  marginLeft: 0,
+  marginRight: 0,
   padding: 0,
   display: "flex",
   flexDirection: "column",
@@ -42,12 +47,13 @@ const LIST: CSSProperties = {
 };
 
 /**
- * The wall. auto-fill with a 260px floor and a 300px ceiling: four columns from 1136px
- * of available width (the user's 1200px window gives four 276px Cards), three below,
- * never five -- the list is capped at four 300px Cards plus three gaps and centred, so
- * a wide monitor keeps side margins instead of a fifth column.
+ * Explicit three/four-column density: auto-fill would count the definite 300px
+ * maximum and fit only three columns at 1200px. Tracks grow from 260px to 300px;
+ * centring leaves side margins once the selected columns reach their cap.
  */
 const WALL: CSSProperties = {
+  marginTop: 0,
+  marginBottom: 0,
   marginLeft: "auto",
   marginRight: "auto",
   padding: 0,
@@ -55,12 +61,11 @@ const WALL: CSSProperties = {
   maxWidth: 1248,
   boxSizing: "border-box",
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 300px))",
   justifyContent: "center",
   gap: 16,
 };
 
-export function TaskList({ tasks, now, wide, onComplete, onDelete, onEdit }: Props) {
+export function TaskList({ tasks, now, wide, wallColumns, onComplete, onDelete, onEdit }: Props) {
   const open = openTasks(tasks);
   if (open.length === 0) {
     return null;
@@ -69,7 +74,9 @@ export function TaskList({ tasks, now, wide, onComplete, onDelete, onEdit }: Pro
   // Order within each section stays exactly as openTasks returned it.
   const dated = open.filter((task) => task.deadline !== null);
   const dateless = open.filter((task) => task.deadline === null);
-  const section = wide ? WALL : LIST;
+  const section = wide
+    ? { ...WALL, gridTemplateColumns: `repeat(${wallColumns}, minmax(260px, 300px))` }
+    : LIST;
 
   const card = (task: Task) => (
     <Card

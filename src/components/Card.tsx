@@ -433,7 +433,8 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
                 ...(editing ? {} : clamp(6)),
               }
             : {
-                flex: 1,
+                // A growing clamp box paints lines below the eighth-line ellipsis.
+                flex: editing ? 1 : "0 1 auto",
                 minWidth: 0,
                 minHeight: 0,
                 fontSize: "6.67cqw",
@@ -498,7 +499,7 @@ export function Card({ task, now, wide, onComplete, onDelete, onEdit }: Props) {
         <span
           style={{
             flex: "none",
-            ...(bubble ? {} : { alignSelf: "flex-start" }),
+            ...(bubble ? {} : { alignSelf: "flex-start", marginTop: "auto" }),
             fontSize: bubble ? 13 : "5.8cqw",
             opacity: 0.75,
             fontVariantNumeric: "tabular-nums",
