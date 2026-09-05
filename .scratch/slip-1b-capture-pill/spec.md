@@ -241,7 +241,8 @@ Six irritations in daily use, all around Capture and how a Task reads afterwards
     so that the post-it is one proportional drawing.
 71. As Bruno, I want the "N dias atrasado" label to stay glued to the text as today, so
     that Overdue keeps its documented look.
-72. As Bruno, I want the dated and dateless sections to keep their 24px separation and
+72. As Bruno, I want the dated and dateless sections to keep their 24px section margin
+    (36px total with the main's existing 12px gap) and
     order, so that the reading order is unchanged.
 73. As Bruno, I want the nine Card colours, the inks and the Overdue red untouched, so
     that hue and intensity keep their meaning.
@@ -340,20 +341,31 @@ Six irritations in daily use, all around Capture and how a Task reads afterwards
 
 ### Card: the square wall
 
-- The wall grid becomes `repeat(auto-fill, minmax(260px, 300px))`, `justify-content:
-  center`, with the list element capped at 1248px wide (four 300px Cards and three
-  16px gaps) and centred. This yields four columns from 1136px of available width
-  (the user's 1200px window: four Cards of 276px), three below, never five. The
-  breakpoint at 900px and the phone column are unchanged.
+- The wall grid uses `repeat(3, minmax(260px, 300px))` below a 1168px viewport and
+  `repeat(4, minmax(260px, 300px))` above it, with `justify-content: center` and a
+  centred list capped at 1248px (four 300px Cards and three 16px gaps). App owns both
+  live media queries. The 1168px threshold allows 1136px plus the main's 32px gutters;
+  four columns still fit with a conventional 15px scrollbar. At 1200px Cards are
+  about 276–280px depending on scrollbar width. The 900px phone breakpoint is unchanged.
+  Explicit counts replace the original auto-fill formula after PR #23 review:
+  auto-fill counts the definite 300px maximum and incorrectly yields only three
+  columns at 1200px. Cards remain capped at 300px and the wall never gains a fifth.
+  Both lists keep zero top/bottom margins, except the dateless section's existing
+  24px top margin when dated Tasks exist (in addition to the main's 12px gap).
 - Each wall Card is a container (`container-type: inline-size`) with `aspect-ratio: 1`,
   `overflow: hidden`, 10px radius, padding as today, laid out as a column: text region
   on top, footer row at the bottom. Text `font-size: 6.67cqw` (16px on a 276px Card),
   line-height 1.3, `-webkit-line-clamp: 8` with the standard `-webkit-box` pair and an
-  ellipsis. Footer: Deadline `dd/mm` at `5.8cqw`, `tabular-nums`, 0.75 opacity. Control
+  ellipsis. The resting text must not flex-grow past its clamped height: use
+  `flex: 0 1 auto`; editing still grows to fill the square. Footer: Deadline `dd/mm`
+  at `5.8cqw`, `tabular-nums`, 0.75 opacity, pushed bottom-left by `margin-top: auto`. Control
   glyphs at `7.5cqw` inside the same 44×44 minimum targets as Leva 1a, positioned
   absolutely in the top-right corner; while revealed, the text region reserves the
   controls' width on its first lines by padding-right so the glyphs never sit on text.
   The Overdue label stays inline with the text.
+- Revealed controls keep Leva 1a's opacity 0.7 and pointer-events auto; at rest they
+  have opacity 0 and pointer-events none. Ticket 04's original opacity-1 row was a
+  matrix typo, not a requested change to Leva 1a's reveal behavior.
 - The bubble (phone) Card changes only by `pre-line` and `-webkit-line-clamp: 6`.
 
 ### Docs

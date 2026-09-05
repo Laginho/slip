@@ -118,13 +118,16 @@ Phone (<900px): one centred column capped at 620px; the list is bottom-anchored
 never scrolls — the list area does (`100dvh`, safe-area insets respected).
 
 Desktop (≥900px): the shell drops its cap and each section becomes a post-it wall —
-CSS grid `repeat(auto-fill, minmax(240px, 1fr))`, gap 12px, natural Card heights
-(rows never stretch). Reading order stays deadline-ascending, left-to-right,
-top-to-bottom. Archive remains an expandable section beneath; the capture bar spans
-the full width, still pinned to the bottom.
+CSS grid `repeat(3, minmax(260px, 300px))`, switching to four columns at a 1168px
+viewport, gap 16px, the list capped at 1248px and centred. Square Cards stop growing
+at 300px: four per row at 1200px, three on narrower desktop windows, never five.
+Reading order stays deadline-ascending, left-to-right, top-to-bottom.
+Archive remains an expandable section beneath; the capture bar spans the full width,
+still pinned to the bottom.
 
-Spacing rhythm: 8px inside lists, 12px page gutters and wall gaps, 24px between the
-dated and dateless sections.
+Spacing: 16px page gutters and wall gaps, 12px between phone Cards and main sections.
+The dateless section adds its existing 24px top margin after dated Tasks; other list
+block margins are zero (36px total between the two lists).
 
 ## Elevation & Depth
 
@@ -146,9 +149,13 @@ border.
 - **Corner Style:** 10px radius.
 - **Background:** Kind hue × Urgency step (nine combinations).
 - **Shadow Strategy:** none.
-- **Internal Padding:** 11px 13px; baseline-aligned row of text + controls.
+- **Internal Padding:** wall 16px 18px, phone 10px 14px; a column of text and footer.
 - **Behaviour:** hover/focus reveals ✓ ✎ ×; double-click completes; swipe flies the
   Card out with a 200ms flight (reduced-motion collapses it).
+- **Wall square:** `aspect-ratio: 1`; text at `6.67cqw` (16px on a 276px Card)
+  clamped at eight lines with an ellipsis, without growing the clamped box;
+  Deadline bottom-left at `5.8cqw` with an automatic top margin;
+  controls top-right; the phone bubble clamps at six lines.
 
 ### Capture bar
 - A pill floating over the paper on both profiles, centred, ≤720px, `--capture-bg`,
@@ -179,7 +186,7 @@ border.
   layout instead.
 - **Do** keep the capture bar pinned, floating on the capture ground, and reachable at
   all times.
-- **Do** preserve bottom-anchoring of the phone list and the wall's uneven bottoms.
+- **Do** preserve bottom-anchoring of the phone list and the wall's square post-its.
 - **Do** keep gestures and their keyboard equivalents working on any new layout.
 
 ### Don't:

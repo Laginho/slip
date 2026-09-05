@@ -22,11 +22,13 @@ type Props = {
    * The screen's layout breakpoint, owned by App (inline styles cannot carry a media
    * query). False is the phone: a single bottom-anchored column, byte-for-byte as it
    * has always been. True turns each section into the post-it wall: a responsive
-   * grid across the full width, Cards at natural height so bottoms stay uneven.
-   * Reading order is unchanged -- grid auto-placement fills left-to-right,
+   * grid across the full width, square Cards. Reading order is unchanged -- grid
+   * auto-placement fills left-to-right,
    * top-to-bottom, and the dateless section still follows the dated one.
    */
   wide: boolean;
+  /** App owns the live desktop density breakpoint as well as the phone breakpoint. */
+  wallColumns: 3 | 4;
   /** All three report whether the change persisted; false means storage refused it. */
   onComplete: (task: Task) => boolean;
   onDelete: (task: Task) => boolean;
@@ -34,7 +36,10 @@ type Props = {
 };
 
 const LIST: CSSProperties = {
-  margin: 0,
+  marginTop: 0,
+  marginBottom: 0,
+  marginLeft: 0,
+  marginRight: 0,
   padding: 0,
   display: "flex",
   flexDirection: "column",
@@ -42,20 +47,25 @@ const LIST: CSSProperties = {
 };
 
 /**
- * The wall. auto-fill with a 280px floor buys more columns as the viewport grows.
- * alignItems:start keeps every Card at its natural height instead of stretching to
- * its row -- uneven bottoms are the accepted aesthetic, not a bug to pack away.
+ * Explicit three/four-column density: auto-fill would count the definite 300px
+ * maximum and fit only three columns at 1200px. Tracks grow from 260px to 300px;
+ * centring leaves side margins once the selected columns reach their cap.
  */
 const WALL: CSSProperties = {
-  margin: 0,
+  marginTop: 0,
+  marginBottom: 0,
+  marginLeft: "auto",
+  marginRight: "auto",
   padding: 0,
+  width: "100%",
+  maxWidth: 1248,
+  boxSizing: "border-box",
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  justifyContent: "center",
   gap: 16,
-  alignItems: "start",
 };
 
-export function TaskList({ tasks, now, wide, onComplete, onDelete, onEdit }: Props) {
+export function TaskList({ tasks, now, wide, wallColumns, onComplete, onDelete, onEdit }: Props) {
   const open = openTasks(tasks);
   if (open.length === 0) {
     return null;
@@ -64,7 +74,9 @@ export function TaskList({ tasks, now, wide, onComplete, onDelete, onEdit }: Pro
   // Order within each section stays exactly as openTasks returned it.
   const dated = open.filter((task) => task.deadline !== null);
   const dateless = open.filter((task) => task.deadline === null);
-  const section = wide ? WALL : LIST;
+  const section = wide
+    ? { ...WALL, gridTemplateColumns: `repeat(${wallColumns}, minmax(260px, 300px))` }
+    : LIST;
 
   const card = (task: Task) => (
     <Card
