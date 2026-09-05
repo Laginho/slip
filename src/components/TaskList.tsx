@@ -22,8 +22,8 @@ type Props = {
    * The screen's layout breakpoint, owned by App (inline styles cannot carry a media
    * query). False is the phone: a single bottom-anchored column, byte-for-byte as it
    * has always been. True turns each section into the post-it wall: a responsive
-   * grid across the full width, Cards at natural height so bottoms stay uneven.
-   * Reading order is unchanged -- grid auto-placement fills left-to-right,
+   * grid across the full width, square Cards. Reading order is unchanged -- grid
+   * auto-placement fills left-to-right,
    * top-to-bottom, and the dateless section still follows the dated one.
    */
   wide: boolean;
@@ -42,17 +42,22 @@ const LIST: CSSProperties = {
 };
 
 /**
- * The wall. auto-fill with a 280px floor buys more columns as the viewport grows.
- * alignItems:start keeps every Card at its natural height instead of stretching to
- * its row -- uneven bottoms are the accepted aesthetic, not a bug to pack away.
+ * The wall. auto-fill with a 260px floor and a 300px ceiling: four columns from 1136px
+ * of available width (the user's 1200px window gives four 276px Cards), three below,
+ * never five -- the list is capped at four 300px Cards plus three gaps and centred, so
+ * a wide monitor keeps side margins instead of a fifth column.
  */
 const WALL: CSSProperties = {
-  margin: 0,
+  marginLeft: "auto",
+  marginRight: "auto",
   padding: 0,
+  width: "100%",
+  maxWidth: 1248,
+  boxSizing: "border-box",
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 300px))",
+  justifyContent: "center",
   gap: 16,
-  alignItems: "start",
 };
 
 export function TaskList({ tasks, now, wide, onComplete, onDelete, onEdit }: Props) {

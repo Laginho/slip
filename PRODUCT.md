@@ -52,7 +52,8 @@ the absence of everything else.
   the list (notifications are a fixed overlay at the top).
 - Urgency is derived, never chosen: hue encodes Kind, intensity encodes time-to-deadline.
 - No theme toggle; the chrome follows the system colour scheme; the nine Card swatches never vary; no accounts/auth, no multi-user anything (ADR 0001 stands).
-- Desktop (≥900px) renders open tasks as a post-it wall; below that, a single column.
+- Desktop (≥900px) renders open tasks as a wall of square post-its, four per row on a
+  1200px window; below that, a single column.
 - The Overdue label's red-on-dark contrast is a known, documented, unresolved conflict
   (`src/palette.ts` comments); do not "fix" it silently.
 
