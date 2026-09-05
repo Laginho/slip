@@ -984,8 +984,8 @@ describe("the square post-it (ticket 04)", () => {
     expect(li.style.borderRadius).toBe("10px");
     expect(li.style.position).toBe("relative");
     expect(li.style.flexDirection).toBe("column");
-    expect(li.style.background).toBe(CARD.work.light);
-    expect(li.style.color).toBe(INK_ON_LIGHT);
+    expect(li.style.background).toBe(rgb(CARD.work.light));
+    expect(li.style.color).toBe(rgb(INK_ON_LIGHT));
   });
 
   it("row 4 — wall text scales with the square (6.67cqw), pre-line, clamped at eight lines with an ellipsis", async () => {
