@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { App } from "./App";
-import { STORAGE_KEY } from "./store";
+import { STORAGE_KEY, type Task } from "./store";
 import { render, stubMediaWithChangeListener, stubNoMatchMedia, task, unmount } from "./testing";
+
+// Layout fixtures must stay local even when this checkout has backend credentials.
+vi.mock("./sync", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./sync")>(),
+  sync: vi.fn(async (tasks: Task[]) => tasks),
+}));
 
 const NOW = new Date(2026, 7, 22);
 
