@@ -72,7 +72,9 @@ Run from the repo root of the checkout under test:
 - jsdom does not reflect IDL properties such as `enterKeyHint`: assert with
   `getAttribute("enterkeyhint")`. It computes no layout, so assert declared inline styles
   (`el.style.minWidth === "44px"`), never sizes; it normalises hex colours to `rgb()`, so
-  compare palette values through a hex→rgb helper (`toRgb` in `src/App.test.tsx`).
+  compare palette values through a hex→rgb helper (`toRgb` in `src/App.test.tsx`, `rgb` in
+  `src/Card.test.tsx`). Known since Leva 1a and still cost slip-1b cycle 05: handoff and RED
+  matrix rows must spell the `rgb(...)` form, not the palette constant.
 - Media stubs in `src/testing.tsx`: `stubNoMatchMedia`, `stubDesktopMedia`, `stubDarkMedia`,
   `stubMediaWithChangeListener`. Only the last records `change` listeners; `useMediaQuery`
   subscribes unconditionally, so a bare `{ matches, media }` stub throws (Leva 1b cycle 01).
