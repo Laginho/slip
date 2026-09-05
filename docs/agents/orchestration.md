@@ -23,12 +23,32 @@ tickets at `issues/<NN>-<slug>.md`.
   branch, remove the cycle's worktree (`git worktree remove <path>`, listed under
   `~/.traycer/worktrees/`) and delete its `traycer/*` branch. The commits live on in
   the feature branch; keeping the husk only accumulates clutter.
+- In-session cycles work in `.claude/worktrees/<slug>/` on `claude/<slug>`, created from
+  `origin/main` after a fetch, and are pushed as `feat/<NN>-<slug>` for the PR. Same
+  disposal after merge.
+
+## In-session transport
+
+`/ptmr ticket <path>` (the installed skill, "Two transports"). Until this tracker migrates
+to repo-unique ids, launch with the issue **path**, not a number: `04` exists in four
+features.
+
+- Default Cast: TEST `opus`, MAKE `sonnet`, READ `sonnet`. The master is the session's model.
+- No handoffs; the PR description is the record. The ledger row names the models and says
+  `in-session, no Traycer, no handoffs; PR #N is the record` (cycle 04 of slip-1b is the
+  precedent).
+- Master duties before the PR: re-run every gate in the worktree, diff against the Design,
+  browser pass for visual tickets at 1280px light and 390px dark.
 
 ## Gates
 
-Run from the repo root:
+Run from the repo root of the checkout under test:
 
-- Test suite: `npm test` (vitest, whole suite; single file: `npx vitest run <path>`)
+- Test suite: `npm test` (vitest, whole suite; single file: `npx vitest run <path>`).
+  From the main checkout, `npm test` also walks every worktree under `.claude/worktrees/`
+  and reports their files as part of the suite (27 files instead of 9 with two worktrees
+  present). Run gates inside the cycle's worktree, or `npx vitest run --dir src` from the
+  main checkout.
 - Typecheck: `npx tsc -b` (strict, `noUnusedLocals` — unused imports fail the gate)
 - Lint: none configured. `tsc -b` is the only static gate; do not invent a lint step.
 - Build (when a cycle touches build config or the PWA shell): `npm run build`
@@ -46,6 +66,25 @@ Run from the repo root:
 - `sync` is mocked per-file with `vi.mock("./sync")`; localStorage key is `tasks/v1`
   (`STORAGE_KEY` in `src/store.ts`).
 - Domain language: `docs/agents/domain.md`. Triage strings: `docs/agents/triage-labels.md`.
+
+### Environment facts (the master adds to this list at ticket close)
+
+- jsdom does not reflect IDL properties such as `enterKeyHint`: assert with
+  `getAttribute("enterkeyhint")`. It computes no layout, so assert declared inline styles
+  (`el.style.minWidth === "44px"`), never sizes; it normalises hex colours to `rgb()`, so
+  compare palette values through a hex→rgb helper (`toRgb` in `src/App.test.tsx`).
+- Media stubs in `src/testing.tsx`: `stubNoMatchMedia`, `stubDesktopMedia`, `stubDarkMedia`,
+  `stubMediaWithChangeListener`. Only the last records `change` listeners; `useMediaQuery`
+  subscribes unconditionally, so a bare `{ matches, media }` stub throws (Leva 1b cycle 01).
+- The Browser pane delivers no keydown, under desktop or touch emulation. Keyboard rows are
+  validated by unit tests; in the browser, drive them with JS-dispatched `KeyboardEvent`s and
+  say so in the PR.
+- When a capture element changes tag or label, grep every legacy selector in
+  `src/App.test.tsx` before RED is committed. Cycle 02 of slip-1b lost a cycle to one
+  `input[placeholder=…]` at a single line.
+- `src/testing.tsx` already has `activate` (models the click a real Enter/Space produces on a
+  button, which jsdom never synthesises), `click`, `dispatch`, `keyEvent`, `typeInto`,
+  `queryLabel`, `seedStorage`, `throwOnSetItem`. Look there before writing a helper.
 
 ## Parallel cycles on one feature
 
