@@ -507,7 +507,7 @@ describe("visual promoção 04 — responsive B/A Conversa vs A/A Parede", () =>
     expect(lists.length).toBeGreaterThan(0);
     const firstListDisplay = getComputedStyle(lists[0]).display;
     expect(firstListDisplay, "wall deve ser grid").toBe("grid");
-    expect(lists[0].style.gridTemplateColumns).toMatch(/auto-fill.*minmax/);
+    expect(lists[0].style.gridTemplateColumns).toBe("repeat(3, minmax(260px, 300px))");
     expect(lists[0].style.gap).toBe("16px");
 
     // CaptureBar: same pill as mobile (one render path)

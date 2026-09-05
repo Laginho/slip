@@ -983,6 +983,7 @@ describe("the square post-it (ticket 04)", () => {
     expect(li.style.overflow).toBe("hidden");
     expect(li.style.borderRadius).toBe("10px");
     expect(li.style.position).toBe("relative");
+    expect(li.style.display).toBe("flex");
     expect(li.style.flexDirection).toBe("column");
     expect(li.style.background).toBe(rgb(CARD.work.light));
     expect(li.style.color).toBe(rgb(INK_ON_LIGHT));
@@ -1000,7 +1001,7 @@ describe("the square post-it (ticket 04)", () => {
     expect(cssValue(span, "display")).toBe("-webkit-box");
     expect(cssValue(span, "WebkitBoxOrient")).toBe("vertical");
     expect(span.style.overflow).toBe("hidden");
-    expect(span.textContent).toContain("a\nb");
+    expect(span.textContent).toBe("a\nb");
   });
 
   it("row 5 — wall text keeps the same clamp on a 12-line Task (declarative, no measurement)", async () => {
@@ -1016,6 +1017,10 @@ describe("the square post-it (ticket 04)", () => {
     expect(cssValue(span, "display")).toBe("-webkit-box");
     expect(cssValue(span, "WebkitBoxOrient")).toBe("vertical");
     expect(span.style.overflow).toBe("hidden");
+    // Growing the clamped box reveals lines below its eighth-line ellipsis.
+    expect(span.style.flexGrow).toBe("0");
+    expect(span.style.flexBasis).toBe("auto");
+    expect(span.textContent).toBe(twelveLines);
   });
 
   it("row 6 — wall Deadline is a bottom-left footer span, dd/mm at 5.8cqw, tabular, 0.75, no 'vence' prefix", async () => {
@@ -1028,12 +1033,15 @@ describe("the square post-it (ticket 04)", () => {
     const allSpans = [...li.querySelectorAll("span")] as HTMLElement[];
     const footer = allSpans.find((s) => s.textContent === formatDeadline("2026-08-30"));
 
-    expect(footer).not.toBeNull();
+    expect(footer).toBeDefined();
     expect(footer!.textContent).toBe(formatDeadline("2026-08-30"));
     expect(li.textContent).not.toContain("vence");
     expect(footer!.style.fontSize).toBe("5.8cqw");
     expect(footer!.style.fontVariantNumeric).toBe("tabular-nums");
     expect(footer!.style.opacity).toBe("0.75");
+    expect(footer!.style.marginTop).toBe("auto");
+    expect(footer!.style.alignSelf).toBe("flex-start");
+    expect(footer!.previousElementSibling).toBe(li.firstElementChild);
 
     // It is the last span before the controls' container: the controls' div follows it.
     const controlsContainer = queryLabel(container, "Concluir")!.parentElement!;
@@ -1047,10 +1055,8 @@ describe("the square post-it (ticket 04)", () => {
     stubDesktopMedia();
     const { container } = await renderSquare("a\nb", { wide: true });
     const li = container.querySelector("li") as HTMLElement;
-    const footer = [...li.querySelectorAll("span")].find((s) =>
-      /\d\d\/\d\d/.test(s.textContent ?? ""),
-    );
-    expect(footer).toBeUndefined();
+    expect(li.querySelectorAll(":scope > span")).toHaveLength(1);
+    expect(li.firstElementChild!.textContent).toBe("a\nb");
   });
 
   it("row 8 — wall Overdue label is a bold red span nested inside the text, inline", async () => {
@@ -1064,10 +1070,11 @@ describe("the square post-it (ticket 04)", () => {
       s.textContent?.includes("atrasado"),
     );
 
-    expect(overdue).not.toBeNull();
+    expect(overdue).toBeDefined();
     expect(overdue!.textContent).toBe("2 dias atrasado");
     expect(overdue!.style.color).toBe(rgb(OVERDUE_RED));
     expect(overdue!.style.fontWeight).toBe("700");
+    expect(["", "inline"]).toContain(overdue!.style.display);
   });
 
   it("row 9 — wall controls sit in one absolute top-right container; each is 44px, 7.5cqw, at rest invisible and inert", async () => {
@@ -1120,12 +1127,20 @@ describe("the square post-it (ticket 04)", () => {
     const concluir = queryLabel(container, "Concluir") as HTMLButtonElement;
 
     await act(async () => concluir.focus());
-    expect(concluir.style.pointerEvents).toBe("auto");
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLButtonElement;
+      expect(button.style.pointerEvents).toBe("auto");
+      expect(button.style.opacity).toBe("0.7");
+    }
     expect(span.style.paddingRight).toBe("80px");
 
     await act(async () => concluir.blur());
     expect(span.style.paddingRight).toBe("0px");
-    expect(concluir.style.pointerEvents).toBe("none");
+    for (const label of ["Concluir", "Editar", "Apagar"]) {
+      const button = queryLabel(container, label) as HTMLButtonElement;
+      expect(button.style.pointerEvents).toBe("none");
+      expect(button.style.opacity).toBe("0");
+    }
   });
 
   it("row 13 — editing a 12-line wall Task: textarea fills the text region and scrolls internally, no footer", async () => {
@@ -1140,9 +1155,10 @@ describe("the square post-it (ticket 04)", () => {
     const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Task"]')!;
     expect(editor.value).toBe(twelveLines);
     expect(editor.style.overflowY).toBe("auto");
-    expect(editor.style.flexGrow === "1" || editor.style.flex !== "").toBe(true);
+    expect(editor.style.flexGrow).toBe("1");
 
     const textSpan = container.querySelector("li > span") as HTMLElement;
+    expect(textSpan.style.flexGrow).toBe("1");
     expect(cssValue(textSpan, "display")).toBe("flex");
     expect(cssValue(textSpan, "WebkitLineClamp")).toBe("");
 
